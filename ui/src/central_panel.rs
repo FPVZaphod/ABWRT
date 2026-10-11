@@ -6,6 +6,8 @@ use egui::{
     ScrollArea, Sense, Slider, Stroke, Ui, Vec2,
 };
 
+use backend::ffmpeg::{png_sequence_dir, OutputMode};
+
 use crate::{
     osd_preview::{calculate_horizontal_offset, calculate_vertical_offset},
     util::{separator_with_space, tooltip_text},
@@ -255,6 +257,66 @@ impl WalksnailOsdTool {
                 Grid::new("render_options")
                     .min_col_width(self.ui_dimensions.options_column1_width)
                     .show(ui, |ui| {
+                        ui.label("Output").on_hover_text(tooltip_text(
+                            "Render a new video with the OSD on top, or only the OSD on a transparent background as a folder of PNG files (one per video frame) that can be imported as an image sequence in a video editor.",
+                        ));
+                        ui.horizontal(|ui| {
+                            changed |= ui
+                                .selectable_value(&mut self.render_settings.output_mode, OutputMode::Video, "Video")
+                                .changed();
+                            changed |= ui
+                                .selectable_value(
+                                    &mut self.render_settings.output_mode,
+                                    OutputMode::PngSequence,
+                                    "PNG sequence",
+                                )
+                                .changed();
+                        });
+                        ui.end_row();
+
+                        if self.render_settings.output_mode == OutputMode::PngSequence {
+                            ui.label("Output folder").on_hover_text(tooltip_text(
+                                "A folder named after the video with the suffix _osd is created here and filled with the PNG files. By default it is created next to the input video.",
+                            ));
+                            ui.horizontal(|ui| {
+                                let location = match (&self.render_settings.png_output_parent, &self.video_file) {
+                                    (Some(parent), _) => Some(parent.clone()),
+                                    (None, Some(video)) => video.parent().map(|p| p.to_path_buf()),
+                                    (None, None) => None,
+                                };
+                                let folder_text = match (&location, &self.video_file) {
+                                    (Some(_), Some(video)) => {
+                                        png_sequence_dir(video, self.render_settings.png_output_parent.as_deref())
+                                            .to_string_lossy()
+                                            .into_owned()
+                                    }
+                                    (Some(parent), None) => parent.to_string_lossy().into_owned(),
+                                    (None, _) => "Next to the input video".to_string(),
+                                };
+                                ui.label(folder_text);
+                                if ui.button("Choose...").clicked() {
+                                    let mut dialog = rfd::FileDialog::new();
+                                    if let Some(location) = &location {
+                                        dialog = dialog.set_directory(location);
+                                    }
+                                    if let Some(folder) = dialog.pick_folder() {
+                                        self.render_settings.png_output_parent = Some(folder);
+                                        changed |= true;
+                                    }
+                                }
+                                if ui
+                                    .add_enabled(
+                                        self.render_settings.png_output_parent.is_some(),
+                                        Button::new("Reset"),
+                                    )
+                                    .clicked()
+                                {
+                                    self.render_settings.png_output_parent = None;
+                                    changed |= true;
+                                }
+                            });
+                            ui.end_row();
+                        } else {
                         ui.label("Encoder")
                             .on_hover_text(tooltip_text("Encoder used for rendering. In some cases not all available encoders are detected. Check the box to also show these."));
                         ui.horizontal(|ui| {
@@ -301,6 +363,7 @@ impl WalksnailOsdTool {
                             changed |= ui.color_edit_button_rgb(&mut self.render_settings.chroma_key).changed();
                         });
                         ui.end_row();
+                        }
                     });
             });
 

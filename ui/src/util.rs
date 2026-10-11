@@ -4,7 +4,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use backend::{config::AppConfig, ffmpeg::VideoInfo, font::FontFile, osd::OsdFile};
+use backend::{
+    config::AppConfig,
+    ffmpeg::{png_sequence_dir, OutputMode, RenderSettings, VideoInfo},
+    font::FontFile,
+    osd::OsdFile,
+};
 use egui::{FontFamily, FontId, Margin, RichText, Separator, TextStyle, Ui};
 use github_release_check::{GitHubReleaseItem, LookupError};
 use semver::Version;
@@ -94,6 +99,14 @@ pub fn get_output_video_path(input_video_path: &Path) -> PathBuf {
     let mut output_video_path = input_video_path.parent().unwrap().to_path_buf();
     output_video_path.push(output_video_file_name);
     output_video_path
+}
+
+/// Where the render output goes: the video file in video mode, or the folder for the PNG frames in PNG mode.
+pub fn get_output_path(input_video_path: &Path, render_settings: &RenderSettings) -> PathBuf {
+    match render_settings.output_mode {
+        OutputMode::Video => get_output_video_path(input_video_path),
+        OutputMode::PngSequence => png_sequence_dir(input_video_path, render_settings.png_output_parent.as_deref()),
+    }
 }
 
 pub fn set_style(ctx: &egui::Context) {

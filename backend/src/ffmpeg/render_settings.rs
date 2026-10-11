@@ -1,9 +1,25 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 use crate::ffmpeg::{Codec, Encoder};
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OutputMode {
+    /// Render the OSD on top of the video and encode a new video file.
+    #[default]
+    Video,
+    /// Render only the OSD on a transparent background to a folder of PNG files, one per video frame.
+    PngSequence,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RenderSettings {
+    #[serde(default)]
+    pub output_mode: OutputMode,
+    /// Folder in which the PNG sequence folder is created. `None` means next to the input video.
+    #[serde(default)]
+    pub png_output_parent: Option<PathBuf>,
     pub encoder: Encoder,
     pub selected_encoder_idx: usize,
     pub show_undetected_encoders: bool,
@@ -16,6 +32,8 @@ pub struct RenderSettings {
 impl Default for RenderSettings {
     fn default() -> Self {
         Self {
+            output_mode: OutputMode::default(),
+            png_output_parent: None,
             encoder: Encoder {
                 name: "libx264".to_string(),
                 codec: Codec::H264,

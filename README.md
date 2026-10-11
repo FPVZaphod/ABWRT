@@ -18,6 +18,7 @@ Cross-platform tool for rendering the flight controller OSD from the Walksnail A
 - Hardware-accelerated encoding powered by ffmpeg.
 - Choose between H.264 and H.265 codecs (more can be added later).
 - View basic information about the video, OSD and font files.
+- Render the OSD as a PNG image sequence with transparent background (one file per video frame) for use in video editing software.
 - Preview OSD frames before rendering.
 - Automatically center the OSD or position it manually.
 - Selectable output video bitrate (more encoder settings will be added later).

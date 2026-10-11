@@ -15,6 +15,17 @@ use crate::{
     osd::{self, OsdOptions},
 };
 
+/// What the OSD is drawn on top of.
+#[derive(Debug, Clone, Copy)]
+pub enum Background {
+    /// The decoded video frame.
+    Video,
+    /// A solid color so the OSD can be keyed out in a video editor.
+    ChromaKey([f32; 3]),
+    /// A fully transparent image.
+    Transparent,
+}
+
 pub struct FrameOverlayIter {
     decoder_iter: FfmpegIterator,
     decoder_process: FfmpegChild,
@@ -24,7 +35,12 @@ pub struct FrameOverlayIter {
     current_osd_frame: osd::Frame,
     ffmpeg_sender: Sender<FromFfmpegMessage>,
     ffmpeg_receiver: Receiver<ToFfmpegMessage>,
-    chroma_key: Option<Rgba<u8>>,
+    background: BackgroundImage,
+}
+
+enum BackgroundImage {
+    Video,
+    Solid(Rgba<u8>),
 }
 
 impl FrameOverlayIter {
@@ -37,12 +53,20 @@ impl FrameOverlayIter {
         osd_options: &OsdOptions,
         ffmpeg_sender: Sender<FromFfmpegMessage>,
         ffmpeg_receiver: Receiver<ToFfmpegMessage>,
-        chroma_key: Option<[f32; 3]>,
+        background: Background,
     ) -> Self {
         let mut osd_frames_iter = osd_frames.into_iter();
         let first_osd_frame = osd_frames_iter.next().unwrap();
-        let chroma_key =
-            chroma_key.map(|c| Rgba([(c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8, 255]));
+        let background = match background {
+            Background::Video => BackgroundImage::Video,
+            Background::ChromaKey(c) => BackgroundImage::Solid(Rgba([
+                (c[0] * 255.0) as u8,
+                (c[1] * 255.0) as u8,
+                (c[2] * 255.0) as u8,
+                255,
+            ])),
+            Background::Transparent => BackgroundImage::Solid(Rgba([0, 0, 0, 0])),
+        };
         Self {
             decoder_iter,
             decoder_process,
@@ -52,7 +76,7 @@ impl FrameOverlayIter {
             current_osd_frame: first_osd_frame,
             ffmpeg_sender,
             ffmpeg_receiver,
-            chroma_key,
+            background,
         }
     }
 }
@@ -78,10 +102,13 @@ impl Iterator for FrameOverlayIter {
                     }
                 }
 
-                let mut frame_image = if let Some(chroma_key) = self.chroma_key {
-                    RgbaImage::from_pixel(video_frame.width, video_frame.height, chroma_key)
-                } else {
-                    RgbaImage::from_raw(video_frame.width, video_frame.height, video_frame.data).unwrap()
+                let mut frame_image = match self.background {
+                    BackgroundImage::Solid(color) => {
+                        RgbaImage::from_pixel(video_frame.width, video_frame.height, color)
+                    }
+                    BackgroundImage::Video => {
+                        RgbaImage::from_raw(video_frame.width, video_frame.height, video_frame.data).unwrap()
+                    }
                 };
 
                 overlay_osd(

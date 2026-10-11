@@ -34,6 +34,8 @@ pub struct WalksnailOsdTool {
     pub to_ffmpeg_sender: Option<Sender<ToFfmpegMessage>>,
     pub from_ffmpeg_receiver: Option<Receiver<FromFfmpegMessage>>,
     pub render_status: RenderStatus,
+    /// Number of existing PNG frames that need confirmation to be deleted before a new PNG render can start.
+    pub png_overwrite_confirm: Option<usize>,
     pub encoders: Vec<Encoder>,
     pub dependencies: Dependencies,
     pub render_settings: RenderSettings,
@@ -164,6 +166,8 @@ impl eframe::App for WalksnailOsdTool {
 
         self.receive_ffmpeg_message();
         self.poll_update_check();
+
+        self.png_overwrite_window(ctx);
 
         self.render_top_panel(ctx);
 
