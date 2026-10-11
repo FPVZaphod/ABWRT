@@ -1,16 +1,16 @@
 [package]
-name = "walksnail-osd-tool"
+name = "abwrt"
 version = "0.3.0"
 edition = "2021"
 description = "Cross-platform tool for rendering the flight controller OSD from the Walksnail Avatar HD FPV system on top of the goggle or VRX recording."
-authors = ["Alexander van Saase"]
+authors = ["FPVZaphod", "Alexander van Saase"]
 keywords = ["Walksnail Avatar", "FPV", "Video"]
-repository = "https://github.com/avsaase/walksnail-osd-tool"
+repository = "https://github.com/FPVZaphod/ABWRT"
 readme = "README.md"
 license = "GPL-3.0"
 
 [[bin]]
-name = "walksnail-osd-tool"
+name = "abwrt"
 
 [dependencies.backend]
 path = "../backend"
@@ -40,8 +40,8 @@ macos-app-bundle = []
 windows-installer = []
 
 [package.metadata.bundle]
-name = "Walksnail OSD Tool"
-identifier = "org.avsaase.walksnail-osd-tool"
+name = "ABWRT"
+identifier = "com.fpvzaphod.abwrt"
 icon = [
     "resources/icons/16x16.png",
     "resources/icons/16x16@2x.png",

@@ -8,7 +8,7 @@ Everything is optional:
 
 | Secrets set | Result |
 | --- | --- |
-| none | Signed ad hoc. After downloading, macOS blocks the app. Run `xattr -dr com.apple.quarantine "Walksnail OSD Tool.app"` once. |
+| none | Signed ad hoc. After downloading, macOS blocks the app. Run `xattr -dr com.apple.quarantine "ABWRT.app"` once. |
 | certificate only | Signed with your Developer ID, but not notarized. macOS still warns on downloaded copies. |
 | certificate and notarization | Signed and notarized. Opens without a warning. |
 
@@ -45,5 +45,5 @@ Never commit them or paste them into issues and chats.
 ## Running
 
 Push to a `feature/**` branch or start *Build macOS* manually in the *Actions* tab. Notarization usually
-takes a few minutes. The result is the artifact `walksnail-osd-tool-macos-apple-silicon` (and `-intel`).
+takes a few minutes. The result is the artifact `abwrt-macos-apple-silicon` (and `-intel`).
 Secrets are not available to workflows triggered from pull requests of forks.

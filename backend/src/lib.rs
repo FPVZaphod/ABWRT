@@ -8,4 +8,4 @@ pub mod osd;
 pub mod overlay;
 pub mod util;
 
-pub const NAMESPACE: &str = "walksnail-osd-tool";
+pub const NAMESPACE: &str = "abwrt";

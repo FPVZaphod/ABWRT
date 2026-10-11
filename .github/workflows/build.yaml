@@ -94,30 +94,30 @@ jobs:
         if: ${{ matrix.targets.name == 'windows64'}}
         continue-on-error: true
         run: |
-          cargo wix --package walksnail-osd-tool --include _deploy\windows\wix\main.wxs --nocapture --no-build
+          cargo wix --package abwrt --include _deploy\windows\wix\main.wxs --nocapture --no-build
           cd ${{ github.workspace }}/target/wix/
           7z a temp.zip *.msi
-          mv temp.zip ${{ github.workspace }}/_deploy/walksnail-osd-tool-${{ matrix.targets.fancy_name }}.zip
+          mv temp.zip ${{ github.workspace }}/_deploy/abwrt-${{ matrix.targets.fancy_name }}.zip
         shell: cmd
 
       - name: Create Mac App bundle
         if: ${{ matrix.targets.name == 'macos-intel' || matrix.targets.name == 'macos-arm'}}
         run: |
           cargo bundle --release --target ${{ matrix.targets.target }} --features macos-app-bundle
-          cp ${{ github.workspace }}/ext/ffmpeg/${{ matrix.targets.name }}/ffmpeg ${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx/Walksnail\ OSD\ Tool.app/Contents/MacOS/ffmpeg
-          cp ${{ github.workspace }}/ext/ffmpeg/${{ matrix.targets.name }}/ffprobe ${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx/Walksnail\ OSD\ Tool.app/Contents/MacOS/ffprobe
+          cp ${{ github.workspace }}/ext/ffmpeg/${{ matrix.targets.name }}/ffmpeg ${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx/ABWRT.app/Contents/MacOS/ffmpeg
+          cp ${{ github.workspace }}/ext/ffmpeg/${{ matrix.targets.name }}/ffprobe ${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx/ABWRT.app/Contents/MacOS/ffprobe
           cd ${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx/
 
-          codesign --force -s - Walksnail\ OSD\ Tool.app/Contents/MacOS/ffmpeg
-          codesign --force -s - Walksnail\ OSD\ Tool.app/Contents/MacOS/ffprobe
-          codesign --force -s - Walksnail\ OSD\ Tool.app/Contents/MacOS/walksnail-osd-tool
-          codesign --force -s - Walksnail\ OSD\ Tool.app
+          codesign --force -s - ABWRT.app/Contents/MacOS/ffmpeg
+          codesign --force -s - ABWRT.app/Contents/MacOS/ffprobe
+          codesign --force -s - ABWRT.app/Contents/MacOS/abwrt
+          codesign --force -s - ABWRT.app
 
-          7z a temp.zip Walksnail\ OSD\ Tool.app
-          mv temp.zip ${{ github.workspace }}/_deploy/walksnail-osd-tool-${{ matrix.targets.fancy_name }}.zip
+          7z a temp.zip ABWRT.app
+          mv temp.zip ${{ github.workspace }}/_deploy/abwrt-${{ matrix.targets.fancy_name }}.zip
 
       - name: Save binaries
         uses: actions/upload-artifact@v4
         with:
-          name: walksnail-osd-tool-${{ matrix.targets.name }}
+          name: abwrt-${{ matrix.targets.name }}
           path: ${{ github.workspace }}/_deploy/*.*

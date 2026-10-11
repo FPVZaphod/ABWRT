@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - A 1080p font (`WS_APC_Nexus_36.png`) is built into the program and used when no font file has been loaded, so rendering works right after loading the video and OSD file. A font file that is loaded manually is still remembered and takes precedence. "Reset files" goes back to the built-in font and a file that is not a valid font no longer replaces the current font.
 
+### Changed
+
+- The program is renamed to ABWRT - A Better Walksnail Render Tool, with its own name, program name (`abwrt`), settings folder and macOS app identifier, so it can be installed next to the Walksnail OSD Tool it is based on.
+- The check for new versions is switched off, because the releases of the original project are not releases of this program. It can be switched on again with `UPDATE_CHECK_REPOSITORY` in `ui/src/util.rs`.
+
 ### Fixed
 
 - For videos with a variable frame rate (like many recordings of the goggles) the frame rate and number of frames shown and used for rendering were based on the average frame rate, while ffmpeg decodes to a constant frame rate with duplicated frames. The constant frame rate is now used, so the PNG sequence has to be imported at that rate to stay in sync, the estimated image count is correct and the progress no longer goes past 100%.

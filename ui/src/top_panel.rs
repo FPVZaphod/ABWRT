@@ -104,7 +104,14 @@ impl WalksnailOsdTool {
 
                     egui::Grid::new("about").spacing(vec2(10.0, 5.0)).show(ui, |ui| {
                         ui.label("Author:");
-                        ui.label("Alexander van Saase");
+                        ui.label("FPVZaphod");
+                        ui.end_row();
+
+                        ui.label("Based on:");
+                        ui.hyperlink_to(
+                            "Walksnail OSD Tool by Alexander van Saase",
+                            "https://github.com/avsaase/walksnail-osd-tool",
+                        );
                         ui.end_row();
 
                         ui.label("Version:");
@@ -125,14 +132,14 @@ impl WalksnailOsdTool {
                         ui.label("License:");
                         ui.hyperlink_to(
                             "General Public License v3.0",
-                            "https://github.com/avsaase/walksnail-osd-tool/blob/master/LICENSE.md",
+                            "https://github.com/FPVZaphod/ABWRT/blob/master/LICENSE.md",
                         );
                         ui.end_row();
                     });
 
                     ui.add_space(10.0);
 
-                    ui.hyperlink_to("Buy me a coffee", "https://www.buymeacoffee.com/avsaase");
+                    ui.hyperlink_to("Source code", "https://github.com/FPVZaphod/ABWRT");
                 });
         }
     }

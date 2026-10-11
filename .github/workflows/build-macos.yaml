@@ -36,7 +36,7 @@ jobs:
     # The Intel build is cross-compiled on the Apple Silicon runner
     runs-on: macos-latest
     env:
-      APP_NAME: Walksnail OSD Tool
+      APP_NAME: ABWRT
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -127,11 +127,11 @@ jobs:
           fi
           "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/ffmpeg"
           "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/ffprobe"
-          "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
+          "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/abwrt"
           "${SIGN[@]}" "$APP_NAME.app"
 
           codesign --verify --deep --strict --verbose=2 "$APP_NAME.app"
-          lipo -info "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
+          lipo -info "$APP_NAME.app/Contents/MacOS/abwrt"
 
       # Notarization lets Gatekeeper open the app without any warning. It needs an Apple ID with an
       # app-specific password and the team ID, see _deploy/macos/SIGNING.md.
@@ -176,7 +176,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/_deploy/macos"
           cd "$BUNDLE_DIR"
           # ditto keeps the file permissions, code signatures and the notarization ticket of the bundle intact
-          ditto -c -k --keepParent "$APP_NAME.app" "${{ github.workspace }}/_deploy/macos/walksnail-osd-tool-${{ matrix.targets.fancy_name }}.zip"
+          ditto -c -k --keepParent "$APP_NAME.app" "${{ github.workspace }}/_deploy/macos/abwrt-${{ matrix.targets.fancy_name }}.zip"
 
       - name: Remove signing keychain
         if: ${{ always() && env.KEYCHAIN_PATH != '' }}
@@ -185,6 +185,6 @@ jobs:
       - name: Save app bundle
         uses: actions/upload-artifact@v4
         with:
-          name: walksnail-osd-tool-${{ matrix.targets.name }}
+          name: abwrt-${{ matrix.targets.name }}
           path: ${{ github.workspace }}/_deploy/macos/*.zip
           if-no-files-found: error

@@ -180,12 +180,12 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
 }
 
 pub fn init_tracing() -> Option<WorkerGuard> {
-    directories::ProjectDirs::from("rs", "", "walksnail-osd-tool").map(|dir| {
+    directories::ProjectDirs::from("rs", "", "abwrt").map(|dir| {
         let log_dir = dir.data_dir();
 
-        std::fs::remove_file(log_dir.join("walksnail-osd-tool.log")).ok();
+        std::fs::remove_file(log_dir.join("abwrt.log")).ok();
 
-        let file_appender = tracing_appender::rolling::never(log_dir, "walksnail-osd-tool.log");
+        let file_appender = tracing_appender::rolling::never(log_dir, "abwrt.log");
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
         let stdout_log = tracing_subscriber::fmt::layer()
@@ -212,7 +212,7 @@ pub fn get_dependency_path(dependency: &str) -> PathBuf {
         // Folder structure:
         // |
         // +-- MacOS
-        //     +-- walksnail-osd-tool
+        //     +-- abwrt
         //     +-- ffmpeg
         //     +-- ffprobe
         exe_dir.join(dependency)
@@ -220,7 +220,7 @@ pub fn get_dependency_path(dependency: &str) -> PathBuf {
         // Folder structure:
         // |
         // +-- bin
-        // |   +-- walksnail-osd-tool.exe
+        // |   +-- abwrt.exe
         // +-- ffmpeg
         //     +-- ffmpeg.exe
         //     +-- ffprobe.exe
@@ -277,15 +277,23 @@ pub mod build_info {
     }
 }
 
+/// GitHub repository (`owner/name`) whose releases are checked for a newer version. The check is switched off
+/// as long as this is `None`, because the releases of the original project are not releases of this program.
+pub const UPDATE_CHECK_REPOSITORY: Option<&str> = None;
+
 #[tracing::instrument(ret)]
 pub fn check_updates() -> Result<Option<GitHubReleaseItem>, LookupError> {
+    let Some(repository) = UPDATE_CHECK_REPOSITORY else {
+        return Ok(None);
+    };
+
     if let Build::Release {
         version: current_version,
         ..
     } = build_info::get_version()
     {
         let github = github_release_check::GitHub::new().unwrap();
-        let releases = github.query("avsaase/walksnail-osd-tool")?;
+        let releases = github.query(repository)?;
         let update_target = releases
             .iter()
             .find(|release| {
