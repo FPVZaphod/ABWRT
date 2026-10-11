@@ -3,7 +3,7 @@ name: Release
 permissions:
   contents: write
 
-# Template of the original project. The releases of ABWRT are created by build-macos.yaml when a version
+# Template of the original project. The releases of ABWRT are created by build-release.yaml when a version
 # tag is pushed, so this workflow is only started manually. Otherwise both workflows would create a release
 # for the same tag.
 on:

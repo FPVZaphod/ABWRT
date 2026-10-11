@@ -1,6 +1,6 @@
 # Signing and notarizing the macOS app
 
-The workflow `.github/workflows/build-macos.yaml` can sign the app with a *Developer ID Application*
+The workflow `.github/workflows/build-release.yaml` can sign the app with a *Developer ID Application*
 certificate and notarize it with Apple, so macOS opens it without any warning. It needs a paid Apple
 Developer account.
 
@@ -44,6 +44,6 @@ Never commit them or paste them into issues and chats.
 
 ## Running
 
-Push to a `feature/**` branch or start *Build macOS* manually in the *Actions* tab. Notarization usually
+Push to a `feature/**` branch or start *Build and release* manually in the *Actions* tab. Notarization usually
 takes a few minutes. The result is the artifact `abwrt-macos-apple-silicon` (and `-intel`).
 Secrets are not available to workflows triggered from pull requests of forks.

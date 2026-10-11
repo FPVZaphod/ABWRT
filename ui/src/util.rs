@@ -180,28 +180,29 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
 }
 
 pub fn init_tracing() -> Option<WorkerGuard> {
-    directories::ProjectDirs::from("rs", "", "abwrt").map(|dir| {
-        let log_dir = dir.data_dir();
+    // In portable mode the logs are stored next to the program
+    let log_dir = backend::config::portable_data_dir()
+        .or_else(|| directories::ProjectDirs::from("rs", "", "abwrt").map(|dir| dir.data_dir().to_path_buf()))?;
+    std::fs::create_dir_all(&log_dir).ok();
 
-        std::fs::remove_file(log_dir.join("abwrt.log")).ok();
+    std::fs::remove_file(log_dir.join("abwrt.log")).ok();
 
-        let file_appender = tracing_appender::rolling::never(log_dir, "abwrt.log");
-        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let file_appender = tracing_appender::rolling::never(log_dir, "abwrt.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-        let stdout_log = tracing_subscriber::fmt::layer()
-            .pretty()
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-            .with_filter(filter::LevelFilter::INFO);
-        let file_log = tracing_subscriber::fmt::layer()
-            .with_ansi(false)
-            .compact()
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-            .with_writer(non_blocking)
-            .with_filter(filter::LevelFilter::INFO);
-        tracing_subscriber::registry().with(stdout_log).with(file_log).init();
+    let stdout_log = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_filter(filter::LevelFilter::INFO);
+    let file_log = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .compact()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_writer(non_blocking)
+        .with_filter(filter::LevelFilter::INFO);
+    tracing_subscriber::registry().with(stdout_log).with(file_log).init();
 
-        guard
-    })
+    Some(guard)
 }
 
 pub fn get_dependency_path(dependency: &str) -> PathBuf {
@@ -226,8 +227,14 @@ pub fn get_dependency_path(dependency: &str) -> PathBuf {
         //     +-- ffprobe.exe
         exe_dir.parent().unwrap().join("ffmpeg").join(dependency)
     } else {
-        dependency.into()
+        // Portable version: ffmpeg and ffprobe next to the program. Otherwise they are looked up in the path.
+        dependency_next_to_executable(exe_dir, dependency).unwrap_or_else(|| dependency.into())
     }
+}
+
+fn dependency_next_to_executable(exe_dir: &Path, dependency: &str) -> Option<PathBuf> {
+    let path = exe_dir.join(format!("{dependency}{}", std::env::consts::EXE_SUFFIX));
+    path.is_file().then_some(path)
 }
 
 pub mod build_info {
@@ -329,6 +336,20 @@ fn should_update_to_version(current_version: &Version, to_version: &Version) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_dependency_next_to_executable() {
+        let dir = std::env::temp_dir().join(format!("abwrt_dependency_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(dependency_next_to_executable(&dir, "ffmpeg"), None);
+
+        let file = dir.join(format!("ffmpeg{}", std::env::consts::EXE_SUFFIX));
+        std::fs::write(&file, "").unwrap();
+        assert_eq!(dependency_next_to_executable(&dir, "ffmpeg"), Some(file));
+        assert_eq!(dependency_next_to_executable(&dir, "ffprobe"), None);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     fn version(version: &str) -> Version {
         Version::parse(version).unwrap()

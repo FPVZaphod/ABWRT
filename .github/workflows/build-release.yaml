@@ -1,10 +1,10 @@
-name: Build macOS
+name: Build and release
 
-# Builds only the macOS app bundles (Apple Silicon and Intel) without the Windows build.
-# Run it manually from the Actions tab or by pushing to a feature branch. The zipped app bundles are
+# Builds the macOS app bundles (Apple Silicon and Intel) and the portable Windows version.
+# Run it manually from the Actions tab or by pushing to a feature branch. The zipped versions are
 # available as artifacts of the workflow run.
 #
-# Pushing a version tag (for example `v0.4.0`) also creates a draft GitHub release with the app bundles
+# Pushing a version tag (for example `v0.4.1`) also creates a draft GitHub release with all versions
 # and the release notes from CHANGELOG.md. The tag must match the version in ui/Cargo.toml and the
 # changelog needs a section for it. Publish the draft on GitHub after checking it.
 
@@ -205,11 +205,80 @@ jobs:
           path: ${{ github.workspace }}/_deploy/macos/*.zip
           if-no-files-found: error
 
+  # Portable Windows version: a folder with the program, ffmpeg and ffprobe that can be started from anywhere.
+  # The file portable.txt next to the program makes it store its settings and logs in the folder `data`.
+  build-windows:
+    name: Build (windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check that the tag matches the version of the program
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          CARGO_VERSION="$(grep -m1 '^version' ui/Cargo.toml | cut -d'"' -f2)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME does not match the version $CARGO_VERSION in ui/Cargo.toml"
+            exit 1
+          fi
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-pc-windows-msvc
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v1-windows"
+
+      - name: Extract ffmpeg
+        run: |
+          cd ext/ffmpeg/windows64
+          7z x ffmpeg-6.0-essentials_build.7z -aoa
+          echo "$GITHUB_WORKSPACE/ext/ffmpeg/windows64/ffmpeg-6.0-essentials_build/bin" >> "$GITHUB_PATH"
+
+      # ffmpeg is in the path now, so the tests that render with ffmpeg run as well
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Build
+        run: cargo build --release --package abwrt
+
+      - name: Create portable version
+        run: |
+          FFMPEG_DIR="ext/ffmpeg/windows64/ffmpeg-6.0-essentials_build"
+          mkdir -p ABWRT-windows
+          cp target/release/abwrt.exe ABWRT-windows/
+          cp "$FFMPEG_DIR/bin/ffmpeg.exe" "$FFMPEG_DIR/bin/ffprobe.exe" ABWRT-windows/
+          cp LICENSE.md ABWRT-windows/LICENSE.md
+          cp "$FFMPEG_DIR/LICENSE" ABWRT-windows/ffmpeg-LICENSE.txt
+          cp "$FFMPEG_DIR/README.txt" ABWRT-windows/ffmpeg-README.txt
+          cat > ABWRT-windows/portable.txt <<'EOF'
+          This file switches on the portable mode of ABWRT: the settings and the log are stored in the
+          folder "data" next to abwrt.exe instead of in the folders of your user account.
+          Delete this file to store them in %APPDATA%\abwrt like an installed program.
+          EOF
+          mkdir -p _deploy/windows-portable
+          7z a "_deploy/windows-portable/abwrt-windows-portable.zip" ABWRT-windows
+
+      - name: Save portable version
+        uses: actions/upload-artifact@v4
+        with:
+          name: abwrt-windows
+          path: _deploy/windows-portable/*.zip
+          if-no-files-found: error
+
   # Creates a draft release when a version tag was pushed, publish it on GitHub after checking it
   release:
     name: Create draft release
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-    needs: build-macos
+    needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -228,7 +297,13 @@ jobs:
           parse-changelog CHANGELOG.md "$VERSION" > "$RUNNER_TEMP/release_notes.md"
           cat >> "$RUNNER_TEMP/release_notes.md" <<'EOF'
 
-          ## Installation (macOS)
+          ## Installation
+
+          ### Windows
+
+          Download `abwrt-windows-portable.zip`, unzip it and start `abwrt.exe` in the folder. Nothing needs to be installed. The settings and the log are stored in the folder `data` next to the program. Windows may show "Windows protected your PC" because the program is not signed, click "More info" and "Run anyway".
+
+          ### macOS
 
           Download `abwrt-macos-apple-silicon.zip` for Apple Silicon Macs or `abwrt-macos-intel.zip` for Intel Macs, unzip it and drag `ABWRT.app` to your Applications folder.
 
