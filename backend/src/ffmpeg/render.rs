@@ -52,7 +52,7 @@ pub fn start_video_render(
                 ffmpeg_path,
                 video_info.width,
                 video_info.height,
-                video_info.frame_rate,
+                video_info.frame_rate / render_settings.png_frame_rate.step() as f32,
                 &png_output_pattern(output_path, input_video),
             )?
         }
@@ -80,14 +80,22 @@ pub fn start_video_render(
         },
     );
 
+    // In PNG mode with a reduced frame rate only every n-th frame is written
+    let frame_step = match render_settings.output_mode {
+        OutputMode::PngSequence => render_settings.png_frame_rate.step() as usize,
+        OutputMode::Video => 1,
+    };
+
     // On another thread run the decoder iterator to completion and feed the output to the encoder's stdin
     let mut encoder_stdin = encoder_process.take_stdin().expect("Failed to get `stdin` for encoder");
     thread::Builder::new()
         .name("Decoder handler".into())
         .spawn(move || {
             tracing::info_span!("Decoder handler thread").in_scope(|| {
-                frame_overlay_iter.for_each(|f| {
-                    encoder_stdin.write_all(&f.data).ok();
+                frame_overlay_iter.enumerate().for_each(|(i, f)| {
+                    if i % frame_step == 0 {
+                        encoder_stdin.write_all(&f.data).ok();
+                    }
                 });
             });
         })

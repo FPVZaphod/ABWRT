@@ -11,7 +11,7 @@ use std::{
 use backend::{
     ffmpeg::{
         existing_png_frames, ffmpeg_available, ffprobe_available, png_sequence_dir, start_video_render,
-        FromFfmpegMessage, OutputMode, RenderSettings, VideoInfo,
+        FromFfmpegMessage, OutputMode, PngFrameRate, RenderSettings, VideoInfo,
     },
     font::FontFile,
     osd::{Frame, OsdOptions},
@@ -87,14 +87,8 @@ fn render_to_end(
     Err("timeout".into())
 }
 
-#[test]
-fn renders_one_transparent_png_per_video_frame() {
-    if !ffmpeg_available(&"ffmpeg".into()) || !ffprobe_available(&"ffprobe".into()) {
-        eprintln!("ffmpeg/ffprobe not available, skipping");
-        return;
-    }
-
-    let tmp = std::env::temp_dir().join(format!("png_sequence_test_{}", std::process::id()));
+fn render_png_sequence(png_frame_rate: PngFrameRate) -> (Vec<PathBuf>, PathBuf) {
+    let tmp = std::env::temp_dir().join(format!("png_sequence_test_{}_{:?}", std::process::id(), png_frame_rate));
     fs::create_dir_all(&tmp).unwrap();
     let video = tmp.join("clip.mp4");
     let font_path = tmp.join("font.png");
@@ -105,14 +99,31 @@ fn renders_one_transparent_png_per_video_frame() {
     let font = FontFile::open(font_path).unwrap();
     let settings = RenderSettings {
         output_mode: OutputMode::PngSequence,
+        png_frame_rate,
         ..Default::default()
     };
     let out_dir = png_sequence_dir(&video, None);
     assert_eq!(out_dir, tmp.join("clip_osd"));
 
     render_to_end(&video, &out_dir, font, &info, &settings).unwrap();
+    (existing_png_frames(&out_dir, &video).unwrap(), tmp)
+}
 
-    let frames = existing_png_frames(&out_dir, &video).unwrap();
+fn ffmpeg_installed() -> bool {
+    let installed = ffmpeg_available(&"ffmpeg".into()) && ffprobe_available(&"ffprobe".into());
+    if !installed {
+        eprintln!("ffmpeg/ffprobe not available, skipping");
+    }
+    installed
+}
+
+#[test]
+fn renders_one_transparent_png_per_video_frame() {
+    if !ffmpeg_installed() {
+        return;
+    }
+    let (frames, tmp) = render_png_sequence(PngFrameRate::Full);
+
     assert_eq!(frames.len() as u32, SECONDS * FRAME_RATE);
     assert_eq!(frames[0].file_name().unwrap(), "clip_osd_000001.png");
 
@@ -124,6 +135,21 @@ fn renders_one_transparent_png_per_video_frame() {
     let (cw, ch) = (24, 36); // 720p character size
     let glyph_pixel = image.get_pixel(2 * cw + cw / 2, 2 * ch + ch / 2);
     assert_eq!(glyph_pixel.0, [255, 255, 255, 255]);
+
+    fs::remove_dir_all(&tmp).unwrap();
+}
+
+#[test]
+fn half_frame_rate_writes_every_second_frame() {
+    if !ffmpeg_installed() {
+        return;
+    }
+    let (frames, tmp) = render_png_sequence(PngFrameRate::Half);
+
+    assert_eq!(frames.len() as u32, SECONDS * FRAME_RATE / 2);
+    // Numbering stays gapless so editors recognize the sequence
+    assert_eq!(frames[0].file_name().unwrap(), "clip_osd_000001.png");
+    assert_eq!(frames[9].file_name().unwrap(), "clip_osd_000010.png");
 
     fs::remove_dir_all(&tmp).unwrap();
 }

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- PNG sequence output: render only the OSD on a transparent background as a folder of PNG files (one per video frame, `<video>_osd/<video>_osd_000001.png`, ...) that can be imported as an image sequence in a video editor. The output folder can be chosen, and existing frames from an earlier render are only deleted after confirmation.
+- PNG sequence output: render only the OSD on a transparent background as a folder of PNG files (one per video frame, `<video>_osd/<video>_osd_000001.png`, ...) that can be imported as an image sequence in a video editor. Optionally only every second video frame is written to halve the number of files. The output folder can be chosen, and existing frames from an earlier render are only deleted after confirmation.
 
 ### Removed
 

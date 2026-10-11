@@ -6,7 +6,7 @@ use egui::{
     ScrollArea, Sense, Slider, Stroke, Ui, Vec2,
 };
 
-use backend::ffmpeg::{png_sequence_dir, OutputMode};
+use backend::ffmpeg::{png_sequence_dir, OutputMode, PngFrameRate};
 
 use crate::{
     osd_preview::{calculate_horizontal_offset, calculate_vertical_offset},
@@ -275,6 +275,32 @@ impl WalksnailOsdTool {
                         ui.end_row();
 
                         if self.render_settings.output_mode == OutputMode::PngSequence {
+                            ui.label("PNG frame rate").on_hover_text(tooltip_text(
+                                "Write a PNG for every video frame, or only for every second frame to halve the number of files. Import the sequence in your video editor with half the frame rate of the video so it keeps the same duration.",
+                            ));
+                            ui.horizontal(|ui| {
+                                changed |= ui
+                                    .selectable_value(
+                                        &mut self.render_settings.png_frame_rate,
+                                        PngFrameRate::Full,
+                                        "Same as video",
+                                    )
+                                    .changed();
+                                changed |= ui
+                                    .selectable_value(
+                                        &mut self.render_settings.png_frame_rate,
+                                        PngFrameRate::Half,
+                                        "Half",
+                                    )
+                                    .changed();
+                                if let Some(video_info) = &self.video_info {
+                                    let fps = video_info.frame_rate / self.render_settings.png_frame_rate.step() as f32;
+                                    let count = self.render_settings.png_frame_rate.frame_count(video_info.total_frames);
+                                    ui.label(format!("{fps:.2} fps, about {count} images"));
+                                }
+                            });
+                            ui.end_row();
+
                             ui.label("Output folder").on_hover_text(tooltip_text(
                                 "A folder named after the video with the suffix _osd is created here and filled with the PNG files. By default it is created next to the input video.",
                             ));

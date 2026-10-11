@@ -13,11 +13,38 @@ pub enum OutputMode {
     PngSequence,
 }
 
+/// Frame rate of the PNG sequence relative to the input video.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PngFrameRate {
+    /// One PNG for every video frame.
+    #[default]
+    Full,
+    /// One PNG for every second video frame.
+    Half,
+}
+
+impl PngFrameRate {
+    /// Only every `step`-th video frame is written.
+    pub fn step(&self) -> u32 {
+        match self {
+            PngFrameRate::Full => 1,
+            PngFrameRate::Half => 2,
+        }
+    }
+
+    /// Number of PNG files for a video with `total_frames` frames.
+    pub fn frame_count(&self, total_frames: u32) -> u32 {
+        total_frames.div_ceil(self.step())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RenderSettings {
     #[serde(default)]
     pub output_mode: OutputMode,
     /// Folder in which the PNG sequence folder is created. `None` means next to the input video.
+    #[serde(default)]
+    pub png_frame_rate: PngFrameRate,
     #[serde(default)]
     pub png_output_parent: Option<PathBuf>,
     pub encoder: Encoder,
@@ -33,6 +60,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             output_mode: OutputMode::default(),
+            png_frame_rate: PngFrameRate::default(),
             png_output_parent: None,
             encoder: Encoder {
                 name: "libx264".to_string(),
@@ -48,5 +76,17 @@ impl Default for RenderSettings {
             use_chroma_key: false,
             chroma_key: [1.0 / 255.0, 177.0 / 255.0, 64.0 / 255.0],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn png_frame_count() {
+        assert_eq!(PngFrameRate::Full.frame_count(20), 20);
+        assert_eq!(PngFrameRate::Half.frame_count(20), 10);
+        assert_eq!(PngFrameRate::Half.frame_count(21), 11);
     }
 }
