@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Portable version for Windows: a folder with `abwrt.exe`, ffmpeg and ffprobe that can be started without installing anything.
+- Portable mode: with a file `portable.txt` next to the program the settings and the log are stored in the folder `data` next to the program instead of the folders of the user.
+- ffmpeg and ffprobe next to the program are used before the ones in the path.
+
 ## [0.4.0] - 2026-10-11
 
 First release of ABWRT - A Better Walksnail Render Tool, based on Walksnail OSD Tool 0.3.0.

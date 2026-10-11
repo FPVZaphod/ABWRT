@@ -9,7 +9,7 @@ ABWRT is based on [Walksnail OSD Tool](https://github.com/avsaase/walksnail-osd-
 - Render the OSD as a PNG image sequence with transparent background (one file per video frame, optionally every second frame) for use in video editing software.
 - Built-in font, no need to load a font file first.
 - No SRT file needed, only the video and the OSD file.
-- App bundle for macOS.
+- App bundle for macOS and a portable version for Windows.
 - Hardware-accelerated encoding powered by ffmpeg.
 - Choose between H.264 and H.265 codecs (more can be added later).
 - View basic information about the video, OSD and font files.
@@ -25,7 +25,7 @@ Choose "PNG sequence" under "Rendering Options". The frames are written to a fol
 ## Installation
 
 ### macOS
-The app bundles are built by the workflow "Build macOS" of this repository. Open the *Actions* tab, select the latest successful run and download the artifact for your processor (`abwrt-macos-arm` for Apple Silicon, `abwrt-macos-intel` for Intel Macs). Unzip it and drag the app to your Applications folder.
+The app bundles are built by the workflow "Build and release" of this repository. Open the *Actions* tab, select the latest successful run and download the artifact for your processor (`abwrt-macos-arm` for Apple Silicon, `abwrt-macos-intel` for Intel Macs). Unzip it and drag the app to your Applications folder.
 
 <details>
 <summary>Instructions for running the first time</summary>
@@ -40,7 +40,11 @@ Signing and notarizing is prepared in the workflow, see [`_deploy/macos/SIGNING.
 </details>
 
 ### Windows
-There is no Windows build yet. The installer and release workflows of the original project are included as a template.
+A portable version, there is nothing to install. Download `abwrt-windows-portable.zip` from the [releases](https://github.com/FPVZaphod/ABWRT/releases) (or from the artifact `abwrt-windows` of a run of the workflow "Build and release"), unzip it and start `abwrt.exe` in the folder. The folder contains ffmpeg and ffprobe, which are found automatically.
+
+The file `portable.txt` next to `abwrt.exe` switches on the portable mode: the settings and the log are stored in the folder `data` next to the program, so the folder can be moved or copied as a whole, for example to a USB stick. Delete `portable.txt` to store them in `%APPDATA%\abwrt` like an installed program. The same works on the other systems: put a file `portable.txt` next to the program.
+
+Windows may show "Windows protected your PC" because the program is not signed. Click "More info" and "Run anyway".
 
 ### Linux
 For now you need to build from source.
