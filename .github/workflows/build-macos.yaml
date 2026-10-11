@@ -1,0 +1,97 @@
+name: Build macOS
+
+# Builds only the macOS app bundles (Apple Silicon and Intel) without the Windows build and without
+# creating a release. Run it manually from the Actions tab or by pushing to a feature branch.
+# The zipped app bundles are available as artifacts of the workflow run.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feature/**"
+
+jobs:
+  build-macos:
+    name: Build (${{ matrix.targets.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        targets:
+          [
+            {
+              name: macos-arm,
+              fancy_name: macos-apple-silicon,
+              target: aarch64-apple-darwin,
+              ffmpeg_filename: ffmpeg6arm.zip,
+              ffprobe_filename: ffprobe6arm.zip,
+            },
+            {
+              name: macos-intel,
+              fancy_name: macos-intel,
+              target: x86_64-apple-darwin,
+              ffmpeg_filename: ffmpeg6intel.zip,
+              ffprobe_filename: ffprobe6intel.zip,
+            },
+          ]
+    # The Intel build is cross-compiled on the Apple Silicon runner
+    runs-on: macos-latest
+    env:
+      APP_NAME: Walksnail OSD Tool
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.targets.target }}
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v1-macos"
+
+      - name: Install cargo-binstall
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall
+
+      - name: Install cargo-bundle
+        run: cargo binstall cargo-bundle --no-confirm --force
+
+      - name: Run tests
+        if: ${{ matrix.targets.name == 'macos-arm' }}
+        run: cargo test --workspace
+
+      - name: Extract ffmpeg and ffprobe
+        run: |
+          cd ${{ github.workspace }}/ext/ffmpeg/${{ matrix.targets.name }}
+          7z x ${{ matrix.targets.ffmpeg_filename }} -aoa
+          7z x ${{ matrix.targets.ffprobe_filename }} -aoa
+          chmod +x ffmpeg ffprobe
+
+      - name: Create app bundle
+        run: |
+          cargo bundle --release --target ${{ matrix.targets.target }} --features macos-app-bundle
+          BUNDLE_DIR="${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx"
+          cp ext/ffmpeg/${{ matrix.targets.name }}/ffmpeg "$BUNDLE_DIR/$APP_NAME.app/Contents/MacOS/ffmpeg"
+          cp ext/ffmpeg/${{ matrix.targets.name }}/ffprobe "$BUNDLE_DIR/$APP_NAME.app/Contents/MacOS/ffprobe"
+
+          cd "$BUNDLE_DIR"
+          codesign --force -s - "$APP_NAME.app/Contents/MacOS/ffmpeg"
+          codesign --force -s - "$APP_NAME.app/Contents/MacOS/ffprobe"
+          codesign --force -s - "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
+          codesign --force -s - "$APP_NAME.app"
+
+          lipo -info "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
+
+          mkdir -p "${{ github.workspace }}/_deploy/macos"
+          # ditto keeps the file permissions and code signatures of the bundle intact
+          ditto -c -k --keepParent "$APP_NAME.app" "${{ github.workspace }}/_deploy/macos/walksnail-osd-tool-${{ matrix.targets.fancy_name }}.zip"
+
+      - name: Save app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: walksnail-osd-tool-${{ matrix.targets.name }}
+          path: ${{ github.workspace }}/_deploy/macos/*.zip
+          if-no-files-found: error
