@@ -81,18 +81,106 @@ jobs:
           BUNDLE_DIR="${{ github.workspace }}/target/${{ matrix.targets.target }}/release/bundle/osx"
           cp ext/ffmpeg/${{ matrix.targets.name }}/ffmpeg "$BUNDLE_DIR/$APP_NAME.app/Contents/MacOS/ffmpeg"
           cp ext/ffmpeg/${{ matrix.targets.name }}/ffprobe "$BUNDLE_DIR/$APP_NAME.app/Contents/MacOS/ffprobe"
+          echo "BUNDLE_DIR=$BUNDLE_DIR" >> "$GITHUB_ENV"
 
+      # Signing with a Developer ID certificate is optional. Without the secrets described in
+      # _deploy/macos/SIGNING.md the app is only signed ad hoc and macOS will block it on first launch.
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ]; then
+            echo "No MACOS_CERTIFICATE secret set, the app will only be signed ad hoc"
+            exit 0
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk '{print $2}')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' certificate found in the imported certificate"
+            exit 1
+          fi
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Sign app bundle
+        run: |
           cd "$BUNDLE_DIR"
-          codesign --force -s - "$APP_NAME.app/Contents/MacOS/ffmpeg"
-          codesign --force -s - "$APP_NAME.app/Contents/MacOS/ffprobe"
-          codesign --force -s - "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
-          codesign --force -s - "$APP_NAME.app"
+          if [ -n "$SIGNING_IDENTITY" ]; then
+            # The hardened runtime and a secure timestamp are required for notarization.
+            # Sign the contents first and the bundle last, --deep is not used on purpose.
+            SIGN=(codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY")
+          else
+            SIGN=(codesign --force --sign -)
+          fi
+          "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/ffmpeg"
+          "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/ffprobe"
+          "${SIGN[@]}" "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
+          "${SIGN[@]}" "$APP_NAME.app"
 
+          codesign --verify --deep --strict --verbose=2 "$APP_NAME.app"
           lipo -info "$APP_NAME.app/Contents/MacOS/walksnail-osd-tool"
 
+      # Notarization lets Gatekeeper open the app without any warning. It needs an Apple ID with an
+      # app-specific password and the team ID, see _deploy/macos/SIGNING.md.
+      - name: Notarize app bundle
+        if: ${{ env.SIGNING_IDENTITY != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::warning::APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are not all set, the app is signed but not notarized"
+            exit 0
+          fi
+
+          cd "$BUNDLE_DIR"
+          ditto -c -k --keepParent "$APP_NAME.app" "$RUNNER_TEMP/notarize.zip"
+
+          RESULT="$(xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --output-format json || true)"
+          echo "$RESULT"
+          STATUS="$(echo "$RESULT" | jq -r '.status // empty')"
+          SUBMISSION_ID="$(echo "$RESULT" | jq -r '.id // empty')"
+
+          if [ "$STATUS" != "Accepted" ]; then
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" || true
+            fi
+            echo "::error::Notarization was not accepted (status: ${STATUS:-unknown})"
+            exit 1
+          fi
+
+          # Attach the notarization ticket so the app also opens without an internet connection
+          xcrun stapler staple "$APP_NAME.app"
+          xcrun stapler validate "$APP_NAME.app"
+          spctl --assess --type execute --verbose=2 "$APP_NAME.app"
+
+      - name: Package app bundle
+        run: |
           mkdir -p "${{ github.workspace }}/_deploy/macos"
-          # ditto keeps the file permissions and code signatures of the bundle intact
+          cd "$BUNDLE_DIR"
+          # ditto keeps the file permissions, code signatures and the notarization ticket of the bundle intact
           ditto -c -k --keepParent "$APP_NAME.app" "${{ github.workspace }}/_deploy/macos/walksnail-osd-tool-${{ matrix.targets.fancy_name }}.zip"
+
+      - name: Remove signing keychain
+        if: ${{ always() && env.KEYCHAIN_PATH != '' }}
+        run: security delete-keychain "$KEYCHAIN_PATH" || true
 
       - name: Save app bundle
         uses: actions/upload-artifact@v4
