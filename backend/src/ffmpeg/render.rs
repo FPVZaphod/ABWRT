@@ -11,40 +11,52 @@ use ffmpeg_sidecar::{
     event::{FfmpegEvent, LogLevel},
 };
 
-use super::{render_settings::RenderSettings, Encoder, FromFfmpegMessage, ToFfmpegMessage, VideoInfo};
+use super::{
+    png_output_pattern,
+    render_settings::{OutputMode, RenderSettings},
+    Encoder, FromFfmpegMessage, ToFfmpegMessage, VideoInfo,
+};
 use crate::{
     font,
     osd::{self, OsdOptions},
-    overlay::FrameOverlayIter,
-    srt::{self, SrtOptions},
+    overlay::{Background, FrameOverlayIter},
 };
 
-#[tracing::instrument(skip(osd_frames, srt_frames, font_file), err)]
+#[tracing::instrument(skip(osd_frames, font_file), err)]
 pub fn start_video_render(
     ffmpeg_path: &PathBuf,
     input_video: &PathBuf,
-    output_video: &PathBuf,
+    output_path: &PathBuf,
     osd_frames: Vec<osd::Frame>,
-    srt_frames: Vec<srt::SrtFrame>,
     font_file: font::FontFile,
-    srt_font: rusttype::Font<'static>,
     osd_options: &OsdOptions,
-    srt_options: &SrtOptions,
     video_info: &VideoInfo,
     render_settings: &RenderSettings,
 ) -> Result<(Sender<ToFfmpegMessage>, Receiver<FromFfmpegMessage>), io::Error> {
     let mut decoder_process = spawn_decoder(ffmpeg_path, input_video)?;
 
-    let mut encoder_process = spawn_encoder(
-        ffmpeg_path,
-        video_info.width,
-        video_info.height,
-        video_info.frame_rate,
-        render_settings.bitrate_mbps,
-        &render_settings.encoder,
-        output_video,
-        render_settings.upscale,
-    )?;
+    let mut encoder_process = match render_settings.output_mode {
+        OutputMode::Video => spawn_encoder(
+            ffmpeg_path,
+            video_info.width,
+            video_info.height,
+            video_info.output_frame_rate,
+            render_settings.bitrate_mbps,
+            &render_settings.encoder,
+            output_path,
+            render_settings.upscale,
+        )?,
+        OutputMode::PngSequence => {
+            std::fs::create_dir_all(output_path)?;
+            spawn_png_encoder(
+                ffmpeg_path,
+                video_info.width,
+                video_info.height,
+                video_info.output_frame_rate / render_settings.png_frame_rate.step() as f32,
+                &png_output_pattern(output_path, input_video),
+            )?
+        }
+    };
 
     // Channels to communicate with ffmpeg handler thread
     let (from_ffmpeg_tx, from_ffmpeg_rx) = crossbeam_channel::unbounded();
@@ -57,19 +69,22 @@ pub fn start_video_render(
             .expect("Failed to create `FfmpegIterator` for decoder"),
         decoder_process,
         osd_frames,
-        srt_frames,
         font_file,
-        srt_font,
         osd_options,
-        srt_options,
         from_ffmpeg_tx.clone(),
         to_ffmpeg_rx,
-        if render_settings.use_chroma_key {
-            Some(render_settings.chroma_key)
-        } else {
-            None
+        match render_settings.output_mode {
+            OutputMode::PngSequence => Background::Transparent,
+            OutputMode::Video if render_settings.use_chroma_key => Background::ChromaKey(render_settings.chroma_key),
+            OutputMode::Video => Background::Video,
         },
     );
+
+    // In PNG mode with a reduced frame rate only every n-th frame is written
+    let frame_step = match render_settings.output_mode {
+        OutputMode::PngSequence => render_settings.png_frame_rate.step() as usize,
+        OutputMode::Video => 1,
+    };
 
     // On another thread run the decoder iterator to completion and feed the output to the encoder's stdin
     let mut encoder_stdin = encoder_process.take_stdin().expect("Failed to get `stdin` for encoder");
@@ -77,8 +92,10 @@ pub fn start_video_render(
         .name("Decoder handler".into())
         .spawn(move || {
             tracing::info_span!("Decoder handler thread").in_scope(|| {
-                frame_overlay_iter.for_each(|f| {
-                    encoder_stdin.write_all(&f.data).ok();
+                frame_overlay_iter.enumerate().for_each(|(i, f)| {
+                    if i % frame_step == 0 {
+                        encoder_stdin.write_all(&f.data).ok();
+                    }
                 });
             });
         })
@@ -144,6 +161,31 @@ pub fn spawn_encoder(
         .output(output_video.to_str().unwrap());
 
     let encoder = encoder_command.spawn()?;
+    Ok(encoder)
+}
+
+/// Encoder that writes every incoming RGBA frame as a PNG file (with alpha channel) following `output_pattern`.
+#[tracing::instrument(skip(ffmpeg_path))]
+pub fn spawn_png_encoder(
+    ffmpeg_path: &PathBuf,
+    width: u32,
+    height: u32,
+    frame_rate: f32,
+    output_pattern: &PathBuf,
+) -> Result<FfmpegChild, io::Error> {
+    let encoder = FfmpegCommand::new_with_path(ffmpeg_path)
+        .create_no_window()
+        .format("rawvideo")
+        .pix_fmt("rgba")
+        .size(width, height)
+        .rate(frame_rate)
+        .input("-")
+        .codec_video("png")
+        .pix_fmt("rgba")
+        .args(["-start_number", "1"])
+        .overwrite()
+        .output(output_pattern.to_str().unwrap())
+        .spawn()?;
     Ok(encoder)
 }
 

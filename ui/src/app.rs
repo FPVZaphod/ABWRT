@@ -8,7 +8,6 @@ use backend::{
     ffmpeg::{Encoder, FromFfmpegMessage, RenderSettings, ToFfmpegMessage, VideoInfo},
     font::{self, FontFile},
     osd::{OsdFile, OsdOptions},
-    srt::{SrtFile, SrtOptions},
 };
 use crossbeam_channel::{Receiver, Sender};
 use derivative::Derivative;
@@ -31,18 +30,17 @@ pub struct WalksnailOsdTool {
     pub video_info: Option<VideoInfo>,
     pub osd_file: Option<OsdFile>,
     pub font_file: Option<FontFile>,
-    pub srt_file: Option<SrtFile>,
     pub ui_dimensions: UiDimensions,
     pub to_ffmpeg_sender: Option<Sender<ToFfmpegMessage>>,
     pub from_ffmpeg_receiver: Option<Receiver<FromFfmpegMessage>>,
     pub render_status: RenderStatus,
+    /// Number of existing PNG frames that need confirmation to be deleted before a new PNG render can start.
+    pub png_overwrite_confirm: Option<usize>,
     pub encoders: Vec<Encoder>,
     pub dependencies: Dependencies,
     pub render_settings: RenderSettings,
     pub osd_preview: OsdPreview,
     pub osd_options: OsdOptions,
-    pub srt_options: SrtOptions,
-    pub srt_font: Option<rusttype::Font<'static>>,
     pub about_window_open: bool,
     pub dark_mode: bool,
     pub app_update: AppUpdate,
@@ -68,15 +66,14 @@ impl WalksnailOsdTool {
         set_custom_fonts(ctx);
         ctx.set_visuals(visuals);
 
-        let srt_font: rusttype::Font<'static> =
-            rusttype::Font::try_from_bytes(include_bytes!("../../resources/fonts/AzeretMono-Regular.ttf")).unwrap();
-
-        let srt_options = saved_settings.srt_options;
         let osd_options = saved_settings.osd_options;
 
         // Load last used font file
         let font_path = PathBuf::from(saved_settings.font_path);
-        let font_file = font::FontFile::open(font_path).ok();
+        // Use the built-in font when no font was saved or the saved font can't be loaded anymore
+        let font_file = font::FontFile::open(font_path)
+            .ok()
+            .unwrap_or_else(font::FontFile::built_in);
 
         let app_update = AppUpdate {
             promise: update_check_promise,
@@ -90,10 +87,8 @@ impl WalksnailOsdTool {
                 ffprobe_path,
             },
             encoders,
-            srt_font: Some(srt_font),
             osd_options,
-            srt_options,
-            font_file,
+            font_file: Some(font_file),
             app_update,
             app_version,
             target,
@@ -175,6 +170,8 @@ impl eframe::App for WalksnailOsdTool {
         self.receive_ffmpeg_message();
         self.poll_update_check();
 
+        self.png_overwrite_window(ctx);
+
         self.render_top_panel(ctx);
 
         self.render_bottom_panel(ctx);
@@ -216,8 +213,7 @@ impl WalksnailOsdTool {
     }
 
     pub fn update_osd_preview(&mut self, ctx: &egui::Context) {
-        if let (Some(video_info), Some(osd_file), Some(font_file), Some(srt_file)) =
-            (&self.video_info, &self.osd_file, &self.font_file, &self.srt_file)
+        if let (Some(video_info), Some(osd_file), Some(font_file)) = (&self.video_info, &self.osd_file, &self.font_file)
         {
             let image = egui::ColorImage::from_rgba_unmultiplied(
                 [video_info.width as usize, video_info.height as usize],
@@ -228,11 +224,8 @@ impl WalksnailOsdTool {
                         .frames
                         .get(self.osd_preview.preview_frame as usize - 1)
                         .unwrap(),
-                    srt_file.frames.last().unwrap(),
                     font_file,
-                    self.srt_font.as_ref().unwrap(),
                     &self.osd_options,
-                    &self.srt_options,
                 ),
             );
             let handle = ctx.load_texture("OSD preview", image, egui::TextureOptions::default());

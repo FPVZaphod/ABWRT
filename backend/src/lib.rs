@@ -6,7 +6,6 @@ pub mod ffmpeg;
 pub mod font;
 pub mod osd;
 pub mod overlay;
-pub mod srt;
 pub mod util;
 
-pub const NAMESPACE: &str = "walksnail-osd-tool";
+pub const NAMESPACE: &str = "abwrt";

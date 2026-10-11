@@ -11,7 +11,7 @@ body:
           required: true
 
   - type: input
-    id: walksnail-osd-tool-version
+    id: abwrt-version
     attributes:
       label: Software version
       description: What version of the software are you running? You can copy the version from the "About" window (click the "i" in the top right corner).
@@ -65,5 +65,5 @@ body:
     id: logs
     attributes:
       label: Log output
-      description: Logs for the last run of the program are stored in `~\AppData\Roaming\Walksnail OSD Tool\data\` on Windows and `~/Library/Application Support` on MacOS. You can paste the output here without adding backticks.
+      description: Logs for the last run of the program are stored in `~\AppData\Roaming\abwrt\data\` on Windows and `~/Library/Application Support/rs.abwrt` on MacOS. You can paste the output here without adding backticks.
       render: shell

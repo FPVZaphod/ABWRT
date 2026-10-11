@@ -17,8 +17,6 @@ impl WalksnailOsdTool {
                     separator_with_space(ui, 15.0);
                     self.osd_info(ui);
                     separator_with_space(ui, 15.0);
-                    self.srt_info(ui);
-                    separator_with_space(ui, 15.0);
                     self.font_info(ui);
                 });
             });
@@ -195,60 +193,6 @@ impl WalksnailOsdTool {
             });
     }
 
-    pub fn srt_info(&self, ui: &mut Ui) {
-        let srt_file = self.srt_file.as_ref();
-        let file_loaded = srt_file.is_some();
-
-        CollapsingHeader::new(RichText::new("SRT file").heading())
-            .icon(move |ui, opennes, response| circle_icon(ui, opennes, response, file_loaded))
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.push_id("srt_info", |ui| {
-                    TableBuilder::new(ui)
-                        .column(Column::exact(self.ui_dimensions.file_info_column1_width))
-                        .column(
-                            Column::remainder()
-                                .at_least(self.ui_dimensions.file_info_column2_width)
-                                .clip(true),
-                        )
-                        .body(|mut body| {
-                            let row_height = self.ui_dimensions.file_info_row_height;
-                            body.row(row_height, |mut row| {
-                                row.col(|ui| {
-                                    ui.label("File name:");
-                                });
-                                row.col(|ui| {
-                                    if let Some(srt_file) = srt_file {
-                                        ui.label(
-                                            srt_file
-                                                .file_path
-                                                .file_name()
-                                                .map(|f| f.to_string_lossy())
-                                                .unwrap_or("-".into()),
-                                        );
-                                    } else {
-                                        ui.label("-");
-                                    }
-                                });
-                            });
-
-                            body.row(row_height, |mut row| {
-                                row.col(|ui| {
-                                    ui.label("Duration:");
-                                });
-                                row.col(|ui| {
-                                    if let Some(duration) = srt_file.map(|i| i.duration) {
-                                        ui.label(format_minutes_seconds(&duration));
-                                    } else {
-                                        ui.label("-");
-                                    }
-                                });
-                            });
-                        });
-                });
-            });
-    }
-
     fn font_info(&self, ui: &mut Ui) {
         let font_file = self.font_file.as_ref();
         let file_loaded = font_file.is_some();
@@ -273,16 +217,28 @@ impl WalksnailOsdTool {
                                 });
                                 row.col(|ui| {
                                     if let Some(font_file) = font_file {
-                                        ui.label(
-                                            font_file
-                                                .file_path
-                                                .file_name()
-                                                .map(|f| f.to_string_lossy())
-                                                .unwrap_or("-".into()),
-                                        );
+                                        let file_name = font_file
+                                            .file_path
+                                            .file_name()
+                                            .map(|f| f.to_string_lossy())
+                                            .unwrap_or("-".into());
+                                        ui.label(file_name);
                                     } else {
                                         ui.label("-");
                                     }
+                                });
+                            });
+
+                            body.row(row_height, |mut row| {
+                                row.col(|ui| {
+                                    ui.label("Source:");
+                                });
+                                row.col(|ui| {
+                                    match font_file {
+                                        Some(font_file) if font_file.built_in => ui.label("Built-in"),
+                                        Some(_) => ui.label("Loaded from file"),
+                                        None => ui.label("-"),
+                                    };
                                 });
                             });
 

@@ -4,7 +4,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use backend::{config::AppConfig, ffmpeg::VideoInfo, font::FontFile, osd::OsdFile, srt::SrtFile};
+use backend::{
+    config::AppConfig,
+    ffmpeg::{png_sequence_dir, OutputMode, RenderSettings, VideoInfo},
+    font::FontFile,
+    osd::OsdFile,
+};
 use egui::{FontFamily, FontId, Margin, RichText, Separator, TextStyle, Ui};
 use github_release_check::{GitHubReleaseItem, LookupError};
 use semver::Version;
@@ -16,7 +21,7 @@ use crate::util::build_info::Build;
 
 impl WalksnailOsdTool {
     pub fn all_files_loaded(&self) -> bool {
-        self.video_loaded() && self.osd_loaded() && self.srt_loaded() && self.font_loaded()
+        self.video_loaded() && self.osd_loaded() && self.font_loaded()
     }
 
     pub fn video_loaded(&self) -> bool {
@@ -25,10 +30,6 @@ impl WalksnailOsdTool {
 
     pub fn osd_loaded(&self) -> bool {
         self.osd_file.is_some()
-    }
-
-    pub fn srt_loaded(&self) -> bool {
-        self.srt_file.is_some()
     }
 
     pub fn font_loaded(&self) -> bool {
@@ -40,9 +41,8 @@ impl WalksnailOsdTool {
             self.video_file = Some(video_file.clone());
             self.video_info = VideoInfo::get(video_file, &self.dependencies.ffprobe_path).ok();
 
-            // Try to load the matching OSD and SRT files
+            // Try to load the matching OSD file
             self.import_osd_file(&[matching_file_with_extension(video_file, "osd")]);
-            self.import_srt_file(&[matching_file_with_extension(video_file, "srt")]);
         }
     }
 
@@ -53,17 +53,12 @@ impl WalksnailOsdTool {
         }
     }
 
-    pub fn import_srt_file(&mut self, file_handles: &[PathBuf]) {
-        if let Some(str_file_path) = filter_file_with_extention(file_handles, "srt") {
-            self.srt_file = SrtFile::open(str_file_path.clone()).ok();
-            self.srt_options.show_distance &= self.srt_file.as_ref().map(|s| s.has_distance).unwrap_or(true);
-            self.config_changed = Some(Instant::now());
-        }
-    }
-
     pub fn import_font_file(&mut self, file_handles: &[PathBuf]) {
         if let Some(font_file_path) = filter_file_with_extention(file_handles, "png") {
-            self.font_file = FontFile::open(font_file_path.clone()).ok();
+            // Keep the current font when the selected file is not a valid font
+            if let Ok(font_file) = FontFile::open(font_file_path.clone()) {
+                self.font_file = Some(font_file);
+            }
             self.config_changed = Some(Instant::now());
         }
     }
@@ -107,6 +102,14 @@ pub fn get_output_video_path(input_video_path: &Path) -> PathBuf {
     let mut output_video_path = input_video_path.parent().unwrap().to_path_buf();
     output_video_path.push(output_video_file_name);
     output_video_path
+}
+
+/// Where the render output goes: the video file in video mode, or the folder for the PNG frames in PNG mode.
+pub fn get_output_path(input_video_path: &Path, render_settings: &RenderSettings) -> PathBuf {
+    match render_settings.output_mode {
+        OutputMode::Video => get_output_video_path(input_video_path),
+        OutputMode::PngSequence => png_sequence_dir(input_video_path, render_settings.png_output_parent.as_deref()),
+    }
 }
 
 pub fn set_style(ctx: &egui::Context) {
@@ -159,14 +162,15 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
     fn into(self) -> AppConfig {
         AppConfig {
             osd_options: self.osd_options.clone(),
-            srt_options: self.srt_options.clone(),
             render_options: self.render_settings.clone(),
             app_update: backend::util::AppUpdate {
                 check_on_startup: self.app_update.check_on_startup,
             },
+            // The built-in font is always available so it does not need to be saved
             font_path: self
                 .font_file
                 .as_ref()
+                .filter(|f| !f.built_in)
                 .map(|f| f.file_path.clone())
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -176,12 +180,12 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
 }
 
 pub fn init_tracing() -> Option<WorkerGuard> {
-    directories::ProjectDirs::from("rs", "", "walksnail-osd-tool").map(|dir| {
+    directories::ProjectDirs::from("rs", "", "abwrt").map(|dir| {
         let log_dir = dir.data_dir();
 
-        std::fs::remove_file(log_dir.join("walksnail-osd-tool.log")).ok();
+        std::fs::remove_file(log_dir.join("abwrt.log")).ok();
 
-        let file_appender = tracing_appender::rolling::never(log_dir, "walksnail-osd-tool.log");
+        let file_appender = tracing_appender::rolling::never(log_dir, "abwrt.log");
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
         let stdout_log = tracing_subscriber::fmt::layer()
@@ -208,7 +212,7 @@ pub fn get_dependency_path(dependency: &str) -> PathBuf {
         // Folder structure:
         // |
         // +-- MacOS
-        //     +-- walksnail-osd-tool
+        //     +-- abwrt
         //     +-- ffmpeg
         //     +-- ffprobe
         exe_dir.join(dependency)
@@ -216,7 +220,7 @@ pub fn get_dependency_path(dependency: &str) -> PathBuf {
         // Folder structure:
         // |
         // +-- bin
-        // |   +-- walksnail-osd-tool.exe
+        // |   +-- abwrt.exe
         // +-- ffmpeg
         //     +-- ffmpeg.exe
         //     +-- ffprobe.exe
@@ -273,15 +277,23 @@ pub mod build_info {
     }
 }
 
+/// GitHub repository (`owner/name`) whose releases are checked for a newer version. The check is switched off
+/// as long as this is `None`, because the releases of the original project are not releases of this program.
+pub const UPDATE_CHECK_REPOSITORY: Option<&str> = None;
+
 #[tracing::instrument(ret)]
 pub fn check_updates() -> Result<Option<GitHubReleaseItem>, LookupError> {
+    let Some(repository) = UPDATE_CHECK_REPOSITORY else {
+        return Ok(None);
+    };
+
     if let Build::Release {
         version: current_version,
         ..
     } = build_info::get_version()
     {
         let github = github_release_check::GitHub::new().unwrap();
-        let releases = github.query("avsaase/walksnail-osd-tool")?;
+        let releases = github.query(repository)?;
         let update_target = releases
             .iter()
             .find(|release| {

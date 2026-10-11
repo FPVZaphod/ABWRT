@@ -1,5 +1,7 @@
 use egui::{vec2, Align2, Button, Frame, Label, RichText, Sense, Ui, Visuals, Window};
 
+use backend::font::FontFile;
+
 use super::WalksnailOsdTool;
 
 impl WalksnailOsdTool {
@@ -23,14 +25,13 @@ impl WalksnailOsdTool {
             .clicked()
         {
             if let Some(file_handles) = rfd::FileDialog::new()
-                .add_filter("Avatar files", &["mp4", "osd", "png", "srt"])
+                .add_filter("Avatar files", &["mp4", "osd", "png"])
                 .pick_files()
             {
                 tracing::info!("Opened files {:?}", file_handles);
                 self.import_video_file(&file_handles);
                 self.import_osd_file(&file_handles);
                 self.import_font_file(&file_handles);
-                self.import_srt_file(&file_handles);
 
                 self.update_osd_preview(ctx);
                 self.render_status.reset();
@@ -50,7 +51,6 @@ impl WalksnailOsdTool {
             self.import_video_file(&file_handles);
             self.import_osd_file(&file_handles);
             self.import_font_file(&file_handles);
-            self.import_srt_file(&file_handles);
             self.update_osd_preview(ctx);
             self.render_status.reset();
         }
@@ -64,8 +64,7 @@ impl WalksnailOsdTool {
             self.video_file = None;
             self.video_info = None;
             self.osd_file = None;
-            self.font_file = None;
-            self.srt_file = None;
+            self.font_file = Some(FontFile::built_in());
             self.osd_preview.texture_handle = None;
             self.osd_preview.preview_frame = 1;
             self.render_status.reset();
@@ -105,7 +104,14 @@ impl WalksnailOsdTool {
 
                     egui::Grid::new("about").spacing(vec2(10.0, 5.0)).show(ui, |ui| {
                         ui.label("Author:");
-                        ui.label("Alexander van Saase");
+                        ui.label("FPVZaphod");
+                        ui.end_row();
+
+                        ui.label("Based on:");
+                        ui.hyperlink_to(
+                            "Walksnail OSD Tool by Alexander van Saase",
+                            "https://github.com/avsaase/walksnail-osd-tool",
+                        );
                         ui.end_row();
 
                         ui.label("Version:");
@@ -126,14 +132,14 @@ impl WalksnailOsdTool {
                         ui.label("License:");
                         ui.hyperlink_to(
                             "General Public License v3.0",
-                            "https://github.com/avsaase/walksnail-osd-tool/blob/master/LICENSE.md",
+                            "https://github.com/FPVZaphod/ABWRT/blob/master/LICENSE.md",
                         );
                         ui.end_row();
                     });
 
                     ui.add_space(10.0);
 
-                    ui.hyperlink_to("Buy me a coffee", "https://www.buymeacoffee.com/avsaase");
+                    ui.hyperlink_to("Source code", "https://github.com/FPVZaphod/ABWRT");
                 });
         }
     }

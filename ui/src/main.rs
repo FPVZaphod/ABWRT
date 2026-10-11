@@ -10,7 +10,7 @@ use backend::{
 use egui::{IconData, ViewportBuilder};
 use poll_promise::Promise;
 
-use crate::util::check_updates;
+use crate::util::{check_updates, UPDATE_CHECK_REPOSITORY};
 
 mod app;
 mod bottom_panel;
@@ -47,7 +47,7 @@ fn main() -> Result<(), eframe::Error> {
     };
 
     let config = AppConfig::load_or_create();
-    let promise = if config.app_update.check_on_startup {
+    let promise = if UPDATE_CHECK_REPOSITORY.is_some() && config.app_update.check_on_startup {
         Promise::spawn_thread("check_updates", check_updates).into()
     } else {
         None
@@ -69,7 +69,7 @@ fn main() -> Result<(), eframe::Error> {
     };
     tracing::info!("Starting GUI");
     eframe::run_native(
-        "Walksnail OSD Tool",
+        "ABWRT - A Better Walksnail Render Tool",
         options,
         Box::new(move |cc| {
             Ok(Box::new(WalksnailOsdTool::new(

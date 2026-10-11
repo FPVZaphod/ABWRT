@@ -61,9 +61,9 @@
 
     <Product
         Id='*'
-        Name='Walksnail OSD Tool'
-        UpgradeCode='E2503389-A853-4E8C-AF83-6FBEB1F9BA5A'
-        Manufacturer='Alexander van Saase'
+        Name='ABWRT'
+        UpgradeCode='bdd2089d-e09b-4d75-919a-a0de4878cd3e'
+        Manufacturer='FPVZaphod'
         Language='1033'
         Codepage='1252'
         Version='$(var.Version)'>
@@ -71,7 +71,7 @@
         <Package Id='*'
             Keywords='Installer'
             Description='Cross-platform tool for overlaying the Walksnail Avatar Goggle and VRX OSD recording on top of the video recording.'
-            Manufacturer='Alexander van Saase'
+            Manufacturer='FPVZaphod'
             InstallerVersion='450'
             Languages='1033'
             Compressed='yes'
@@ -85,15 +85,15 @@
             DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.' />
 
         <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
-        <Property Id='DiskPrompt' Value='walksnail-osd-tool Installation' />
+        <Property Id='DiskPrompt' Value='abwrt Installation' />
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
-                <Directory Id="APPLICATIONFOLDER" Name="Walksnail OSD Tool" />
+                <Directory Id="APPLICATIONFOLDER" Name="ABWRT" />
             </Directory>
 
             <Directory Id="ProgramMenuFolder">
-                <Directory Id="ApplicationProgramsFolder" Name="Walksnail OSD Tool" />
+                <Directory Id="ApplicationProgramsFolder" Name="ABWRT" />
             </Directory>
         </Directory>
 
@@ -107,33 +107,33 @@
             </Component>
 
             <Directory Id='Bin' Name='bin'>
-                <Component Id='binary' Guid='d6b111d3-aab0-4b83-882d-3f7cdfa7cb15'>
+                <Component Id='binary' Guid='cec57cbf-ecdc-40e8-a90c-7d2808177545'>
                     <File
                         Id='binary'
-                        Name='walksnail-osd-tool.exe'
+                        Name='abwrt.exe'
                         DiskId='1'
-                        Source='$(var.CargoTargetBinDir)\walksnail-osd-tool.exe'
+                        Source='$(var.CargoTargetBinDir)\abwrt.exe'
                         KeyPath='yes' />
                 </Component>
             </Directory>
 
             <Directory Id="ffmpeg" Name="ffmpeg">
-                <Component Id="ffmpeg" Guid="ed8f6fef-0129-4926-9250-9f15eb507fbc">
+                <Component Id="ffmpeg" Guid="e1009b39-f442-4cbd-af38-2565f7aa9034">
                     <File Id="ffmpeg" Name="ffmpeg.exe"
                         Source="ext\ffmpeg\windows64\ffmpeg-6.0-essentials_build\bin\ffmpeg.exe"
                         KeyPath="yes" />
                 </Component>
-                <Component Id="ffprobe" Guid="88c5f8ed-ec1b-4a6c-8cf3-c649b42e0aa7">
+                <Component Id="ffprobe" Guid="69ea0c0a-c071-49ff-a53d-b1851494556c">
                     <File Id="ffprobe" Name="ffprobe.exe"
                         Source="ext\ffmpeg\windows64\ffmpeg-6.0-essentials_build\bin\ffprobe.exe"
                         KeyPath="yes" />
                 </Component>
-                <Component Id="ffmpeg_license" Guid="45172027-9711-483b-991f-6c2d99819e40">
+                <Component Id="ffmpeg_license" Guid="1a41c053-1ef0-4165-9c71-2ac4af2410c2">
                     <File Id="ffmpeg_license" Name="LICENSE"
                         Source="ext\ffmpeg\windows64\ffmpeg-6.0-essentials_build\LICENSE"
                         KeyPath="yes" />
                 </Component>
-                <Component Id="ffmpeg_readme" Guid="a6f0d44e-7318-4108-a4a3-813da0504861">
+                <Component Id="ffmpeg_readme" Guid="e20a5d31-c19d-4b0d-b472-5f5470945799">
                     <File Id="ffmpeg_readme" Name="README.txt"
                         Source="ext\ffmpeg\windows64\ffmpeg-6.0-essentials_build\README.txt"
                         KeyPath="yes" />
@@ -144,9 +144,9 @@
         <Icon Id="AppIcon" SourceFile="resources\icons\app-icon.ico" />
 
         <DirectoryRef Id="ApplicationProgramsFolder">
-            <Component Id="ApplicationShortcut" Guid="6f25e6b5-8a5e-424c-a57a-19bc7508eaab">
+            <Component Id="ApplicationShortcut" Guid="c9f38d7c-197a-4355-aa87-e5f2b5788321">
                 <Shortcut Id="ApplicationStartMenuShortcut"
-                    Name="Walksnail OSD Tool"
+                    Name="ABWRT"
                     Target="[#binary]"
                     WorkingDirectory="APPLICATIONFOLDER"
                     Icon="AppIcon" />
@@ -199,7 +199,7 @@
         <Icon Id='ProductICO' SourceFile='resources\icons\app-icon.ico' />
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
-        <Property Id='ARPHELPLINK' Value='https://github.com/avsaase/walksnail-osd-tool' />
+        <Property Id='ARPHELPLINK' Value='https://github.com/FPVZaphod/ABWRT' />
 
         <UI>
             <UIRef Id='WixUI_FeatureTree' />

@@ -1,28 +1,21 @@
 use backend::{
     font,
     osd::{self, OsdOptions},
-    overlay::{overlay_osd, overlay_srt_data},
-    srt::{self, SrtOptions},
+    overlay::overlay_osd,
 };
 use image::RgbaImage;
 
-#[tracing::instrument(skip(osd_frame, srt_frame, font), level = "debug")]
+#[tracing::instrument(skip(osd_frame, font), level = "debug")]
 pub fn create_osd_preview(
     width: u32,
     height: u32,
     osd_frame: &osd::Frame,
-    srt_frame: &srt::SrtFrame,
     font: &font::FontFile,
-    srt_font: &rusttype::Font,
     osd_options: &OsdOptions,
-    srt_options: &SrtOptions,
 ) -> RgbaImage {
     let mut image = RgbaImage::new(width, height);
 
     overlay_osd(&mut image, osd_frame, font, osd_options);
-    if let Some(srt_data) = &srt_frame.data {
-        overlay_srt_data(&mut image, srt_data, srt_font, srt_options);
-    }
 
     image
 }
