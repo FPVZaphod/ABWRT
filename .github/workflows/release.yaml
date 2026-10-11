@@ -3,10 +3,11 @@ name: Release
 permissions:
   contents: write
 
-on: 
-  push:
-    tags:
-      - "v*"
+# Template of the original project. The releases of ABWRT are created by build-macos.yaml when a version
+# tag is pushed, so this workflow is only started manually. Otherwise both workflows would create a release
+# for the same tag.
+on:
+  workflow_dispatch:
 
 jobs:
   build:
