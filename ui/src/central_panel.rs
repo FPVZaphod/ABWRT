@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use backend::util::Coordinates;
 use egui::{
-    vec2, Button, CentralPanel, Checkbox, CollapsingHeader, Color32, CursorIcon, Grid, Image, Rect, RichText,
+    vec2, Button, CentralPanel, Checkbox, CollapsingHeader, Color32, CursorIcon, Grid, Image, Label, Rect, RichText,
     ScrollArea, Sense, Slider, Stroke, Ui, Vec2,
 };
 
@@ -147,7 +147,16 @@ impl WalksnailOsdTool {
                     let aspect_ratio = video_info.width as f32 / video_info.height as f32;
                     let preview_height = preview_width / aspect_ratio;
                     let image = Image::new(handle).fit_to_exact_size(Vec2::new(preview_width, preview_height));
-                    let rect = ui.add(image.bg_fill(Color32::LIGHT_GRAY)).rect;
+                    let rect = if self.render_settings.output_mode == OutputMode::PngSequence {
+                        // The PNG frames have a transparent background, show that with a checkerboard
+                        let (rect, _) =
+                            ui.allocate_exact_size(Vec2::new(preview_width, preview_height), Sense::hover());
+                        paint_checkerboard(ui, rect);
+                        image.paint_at(ui, rect);
+                        rect
+                    } else {
+                        ui.add(image.bg_fill(Color32::LIGHT_GRAY)).rect
+                    };
 
                     if self.osd_preview.mask_edit_mode_enabled {
                         self.draw_grid(ui, ctx, rect);
@@ -319,7 +328,6 @@ impl WalksnailOsdTool {
                                     (Some(parent), None) => parent.to_string_lossy().into_owned(),
                                     (None, _) => "Next to the input video".to_string(),
                                 };
-                                ui.label(folder_text);
                                 if ui.button("Choose...").clicked() {
                                     let mut dialog = rfd::FileDialog::new();
                                     if let Some(location) = &location {
@@ -340,6 +348,8 @@ impl WalksnailOsdTool {
                                     self.render_settings.png_output_parent = None;
                                     changed |= true;
                                 }
+                                // Long paths are truncated so the buttons always stay visible
+                                ui.add(Label::new(&folder_text).truncate()).on_hover_text(&folder_text);
                             });
                             ui.end_row();
                         } else {
@@ -395,6 +405,22 @@ impl WalksnailOsdTool {
 
         if changed {
             self.config_changed = Some(Instant::now());
+        }
+    }
+}
+
+/// Light and dark gray squares to indicate transparency.
+fn paint_checkerboard(ui: &Ui, rect: Rect) {
+    const SQUARE_SIZE: f32 = 12.0;
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 0.0, Color32::from_gray(205));
+    let dark = Color32::from_gray(160);
+    let columns = (rect.width() / SQUARE_SIZE).ceil() as u32;
+    let rows = (rect.height() / SQUARE_SIZE).ceil() as u32;
+    for row in 0..rows {
+        for column in (row % 2..columns).step_by(2) {
+            let min = rect.min + vec2(column as f32 * SQUARE_SIZE, row as f32 * SQUARE_SIZE);
+            painter.rect_filled(Rect::from_min_size(min, vec2(SQUARE_SIZE, SQUARE_SIZE)), 0.0, dark);
         }
     }
 }
