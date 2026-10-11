@@ -22,12 +22,21 @@ const HEIGHT: u32 = 720;
 const FRAME_RATE: u32 = 10;
 const SECONDS: u32 = 2;
 
-fn create_test_video(path: &Path) -> bool {
-    Command::new("ffmpeg")
-        .args(["-y", "-v", "error", "-f", "lavfi", "-i"])
-        .arg(format!(
+fn create_test_video(path: &Path, variable_frame_rate: bool) -> bool {
+    let mut command = Command::new("ffmpeg");
+    command.args(["-y", "-v", "error", "-f", "lavfi", "-i"]);
+    if variable_frame_rate {
+        // 60 fps video where every 60th frame is missing: ffprobe reports 60 as r_frame_rate but the
+        // average is lower, like for recordings of the Walksnail goggles
+        command
+            .arg(format!("testsrc=size={WIDTH}x{HEIGHT}:rate=60:duration=10"))
+            .args(["-vf", "select='not(eq(mod(n,60),59))'", "-fps_mode", "vfr"]);
+    } else {
+        command.arg(format!(
             "testsrc=size={WIDTH}x{HEIGHT}:rate={FRAME_RATE}:duration={SECONDS}"
-        ))
+        ));
+    }
+    command
         .args(["-pix_fmt", "yuv420p"])
         .arg(path)
         .status()
@@ -87,12 +96,17 @@ fn render_to_end(
     Err("timeout".into())
 }
 
-fn render_png_sequence(png_frame_rate: PngFrameRate) -> (Vec<PathBuf>, PathBuf) {
-    let tmp = std::env::temp_dir().join(format!("png_sequence_test_{}_{:?}", std::process::id(), png_frame_rate));
+fn render_png_sequence(png_frame_rate: PngFrameRate, variable_frame_rate: bool) -> (Vec<PathBuf>, PathBuf, VideoInfo) {
+    let tmp = std::env::temp_dir().join(format!(
+        "png_sequence_test_{}_{:?}_{}",
+        std::process::id(),
+        png_frame_rate,
+        variable_frame_rate
+    ));
     fs::create_dir_all(&tmp).unwrap();
     let video = tmp.join("clip.mp4");
     let font_path = tmp.join("font.png");
-    assert!(create_test_video(&video));
+    assert!(create_test_video(&video, variable_frame_rate));
     create_test_font(&font_path);
 
     let info = VideoInfo::get(&video, &"ffprobe".into()).unwrap();
@@ -106,7 +120,7 @@ fn render_png_sequence(png_frame_rate: PngFrameRate) -> (Vec<PathBuf>, PathBuf) 
     assert_eq!(out_dir, tmp.join("clip_osd"));
 
     render_to_end(&video, &out_dir, font, &info, &settings).unwrap();
-    (existing_png_frames(&out_dir, &video).unwrap(), tmp)
+    (existing_png_frames(&out_dir, &video).unwrap(), tmp, info)
 }
 
 fn ffmpeg_installed() -> bool {
@@ -122,7 +136,7 @@ fn renders_one_transparent_png_per_video_frame() {
     if !ffmpeg_installed() {
         return;
     }
-    let (frames, tmp) = render_png_sequence(PngFrameRate::Full);
+    let (frames, tmp, _) = render_png_sequence(PngFrameRate::Full, false);
 
     assert_eq!(frames.len() as u32, SECONDS * FRAME_RATE);
     assert_eq!(frames[0].file_name().unwrap(), "clip_osd_000001.png");
@@ -144,12 +158,43 @@ fn half_frame_rate_writes_every_second_frame() {
     if !ffmpeg_installed() {
         return;
     }
-    let (frames, tmp) = render_png_sequence(PngFrameRate::Half);
+    let (frames, tmp, _) = render_png_sequence(PngFrameRate::Half, false);
 
     assert_eq!(frames.len() as u32, SECONDS * FRAME_RATE / 2);
     // Numbering stays gapless so editors recognize the sequence
     assert_eq!(frames[0].file_name().unwrap(), "clip_osd_000001.png");
     assert_eq!(frames[9].file_name().unwrap(), "clip_osd_000010.png");
+
+    fs::remove_dir_all(&tmp).unwrap();
+}
+
+#[test]
+fn variable_frame_rate_video_stays_in_sync() {
+    if !ffmpeg_installed() {
+        return;
+    }
+    let (frames, tmp, info) = render_png_sequence(PngFrameRate::Full, true);
+
+    // ffmpeg decodes to a constant 60 fps and duplicates frames to fill the gaps
+    assert_eq!(info.output_frame_rate, 60.0);
+    assert!(info.frame_rate < 59.5, "average frame rate is {}", info.frame_rate);
+
+    // The number of PNGs matches the estimate used for the progress and the image count in the UI
+    let expected = info.total_frames as i64;
+    assert!(
+        (frames.len() as i64 - expected).abs() <= 1,
+        "{} PNGs but {} expected",
+        frames.len(),
+        expected
+    );
+
+    // Played at the output frame rate the sequence is as long as the video, otherwise it drifts out of sync
+    let sequence_secs = frames.len() as f32 / info.output_frame_rate;
+    assert!(
+        (sequence_secs - info.duration.as_secs_f32()).abs() < 0.1,
+        "sequence is {sequence_secs}s but the video is {}s",
+        info.duration.as_secs_f32()
+    );
 
     fs::remove_dir_all(&tmp).unwrap();
 }

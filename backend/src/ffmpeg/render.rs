@@ -40,7 +40,7 @@ pub fn start_video_render(
             ffmpeg_path,
             video_info.width,
             video_info.height,
-            video_info.frame_rate,
+            video_info.output_frame_rate,
             render_settings.bitrate_mbps,
             &render_settings.encoder,
             output_path,
@@ -52,7 +52,7 @@ pub fn start_video_render(
                 ffmpeg_path,
                 video_info.width,
                 video_info.height,
-                video_info.frame_rate / render_settings.png_frame_rate.step() as f32,
+                video_info.output_frame_rate / render_settings.png_frame_rate.step() as f32,
                 &png_output_pattern(output_path, input_video),
             )?
         }

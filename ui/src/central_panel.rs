@@ -303,7 +303,7 @@ impl WalksnailOsdTool {
                                     )
                                     .changed();
                                 if let Some(video_info) = &self.video_info {
-                                    let fps = video_info.frame_rate / self.render_settings.png_frame_rate.step() as f32;
+                                    let fps = video_info.output_frame_rate / self.render_settings.png_frame_rate.step() as f32;
                                     let count = self.render_settings.png_frame_rate.frame_count(video_info.total_frames);
                                     ui.label(format!("{fps:.2} fps, about {count} images"));
                                 }
