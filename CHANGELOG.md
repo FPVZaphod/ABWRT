@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - PNG sequence output: render only the OSD on a transparent background as a folder of PNG files (one per video frame, `<video>_osd/<video>_osd_000001.png`, ...) that can be imported as an image sequence in a video editor. Optionally only every second video frame is written to halve the number of files. The output folder can be chosen, and existing frames from an earlier render are only deleted after confirmation.
 
+- A 1080p font (`WS_APC_Nexus_36.png`) is built into the program and used when no font file has been loaded, so rendering works right after loading the video and OSD file. A font file that is loaded manually is still remembered and takes precedence. "Reset files" goes back to the built-in font and a file that is not a valid font no longer replaces the current font.
+
 ### Fixed
 
 - For videos with a variable frame rate (like many recordings of the goggles) the frame rate and number of frames shown and used for rendering were based on the average frame rate, while ffmpeg decodes to a constant frame rate with duplicated frames. The constant frame rate is now used, so the PNG sequence has to be imported at that rate to stay in sync, the estimated image count is correct and the progress no longer goes past 100%.

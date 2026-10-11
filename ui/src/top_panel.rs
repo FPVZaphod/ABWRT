@@ -1,5 +1,7 @@
 use egui::{vec2, Align2, Button, Frame, Label, RichText, Sense, Ui, Visuals, Window};
 
+use backend::font::FontFile;
+
 use super::WalksnailOsdTool;
 
 impl WalksnailOsdTool {
@@ -62,7 +64,7 @@ impl WalksnailOsdTool {
             self.video_file = None;
             self.video_info = None;
             self.osd_file = None;
-            self.font_file = None;
+            self.font_file = Some(FontFile::built_in());
             self.osd_preview.texture_handle = None;
             self.osd_preview.preview_frame = 1;
             self.render_status.reset();

@@ -217,16 +217,28 @@ impl WalksnailOsdTool {
                                 });
                                 row.col(|ui| {
                                     if let Some(font_file) = font_file {
-                                        ui.label(
-                                            font_file
-                                                .file_path
-                                                .file_name()
-                                                .map(|f| f.to_string_lossy())
-                                                .unwrap_or("-".into()),
-                                        );
+                                        let file_name = font_file
+                                            .file_path
+                                            .file_name()
+                                            .map(|f| f.to_string_lossy())
+                                            .unwrap_or("-".into());
+                                        ui.label(file_name);
                                     } else {
                                         ui.label("-");
                                     }
+                                });
+                            });
+
+                            body.row(row_height, |mut row| {
+                                row.col(|ui| {
+                                    ui.label("Source:");
+                                });
+                                row.col(|ui| {
+                                    match font_file {
+                                        Some(font_file) if font_file.built_in => ui.label("Built-in"),
+                                        Some(_) => ui.label("Loaded from file"),
+                                        None => ui.label("-"),
+                                    };
                                 });
                             });
 

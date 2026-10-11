@@ -55,7 +55,10 @@ impl WalksnailOsdTool {
 
     pub fn import_font_file(&mut self, file_handles: &[PathBuf]) {
         if let Some(font_file_path) = filter_file_with_extention(file_handles, "png") {
-            self.font_file = FontFile::open(font_file_path.clone()).ok();
+            // Keep the current font when the selected file is not a valid font
+            if let Ok(font_file) = FontFile::open(font_file_path.clone()) {
+                self.font_file = Some(font_file);
+            }
             self.config_changed = Some(Instant::now());
         }
     }
@@ -163,9 +166,11 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
             app_update: backend::util::AppUpdate {
                 check_on_startup: self.app_update.check_on_startup,
             },
+            // The built-in font is always available so it does not need to be saved
             font_path: self
                 .font_file
                 .as_ref()
+                .filter(|f| !f.built_in)
                 .map(|f| f.file_path.clone())
                 .unwrap_or_default()
                 .to_string_lossy()

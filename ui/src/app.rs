@@ -70,7 +70,10 @@ impl WalksnailOsdTool {
 
         // Load last used font file
         let font_path = PathBuf::from(saved_settings.font_path);
-        let font_file = font::FontFile::open(font_path).ok();
+        // Use the built-in font when no font was saved or the saved font can't be loaded anymore
+        let font_file = font::FontFile::open(font_path)
+            .ok()
+            .unwrap_or_else(font::FontFile::built_in);
 
         let app_update = AppUpdate {
             promise: update_check_promise,
@@ -85,7 +88,7 @@ impl WalksnailOsdTool {
             },
             encoders,
             osd_options,
-            font_file,
+            font_file: Some(font_file),
             app_update,
             app_version,
             target,
