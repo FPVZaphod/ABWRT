@@ -22,10 +22,6 @@ impl WalksnailOsdTool {
 
                 separator_with_space(ui, 10.0);
 
-                self.srt_options(ui, ctx);
-
-                separator_with_space(ui, 10.0);
-
                 self.osd_preview(ui, ctx);
 
                 separator_with_space(ui, 10.0);
@@ -131,88 +127,6 @@ impl WalksnailOsdTool {
                                 .add(Checkbox::without_text(&mut self.osd_options.adjust_playback_speed))
                                 .changed()
                         });
-                    });
-            });
-
-        if changed {
-            self.update_osd_preview(ctx);
-            self.config_changed = Some(Instant::now());
-        }
-    }
-
-    fn srt_options(&mut self, ui: &mut Ui, ctx: &egui::Context) {
-        let mut changed = false;
-
-        CollapsingHeader::new(RichText::new("SRT Options").heading())
-            .default_open(true)
-            .show_unindented(ui, |ui| {
-                Grid::new("srt_options")
-                    .min_col_width(self.ui_dimensions.options_column1_width)
-                    .show(ui, |ui| {
-                        ui.label("Horizontal position").on_hover_text(tooltip_text(
-                            "Horizontal position of the SRT data (% of the total video width from the left edge).",
-                        ));
-                        ui.horizontal(|ui| {
-                            changed |= ui
-                                .add(Slider::new(&mut self.srt_options.position.x, 0.0..=100.0).fixed_decimals(1))
-                                .changed();
-
-                            if ui.button("Reset").clicked() {
-                                self.srt_options.position.x = 1.5;
-                                changed |= true;
-                            }
-                        });
-                        ui.end_row();
-
-                        ui.label("Vertical position").on_hover_text(tooltip_text(
-                            "Vertical position of the SR data (% of video height from the top edge).",
-                        ));
-                        ui.horizontal(|ui| {
-                            changed |= ui
-                                .add(Slider::new(&mut self.srt_options.position.y, 0.0..=100.0).fixed_decimals(1))
-                                .changed();
-
-                            if ui.button("Reset").clicked() {
-                                self.srt_options.position.y = 95.0;
-                                changed |= true;
-                            }
-                        });
-                        ui.end_row();
-
-                        ui.label("Size")
-                            .on_hover_text(tooltip_text("Font size of the SRT data."));
-                        ui.horizontal(|ui| {
-                            changed |= ui
-                                .add(Slider::new(&mut self.srt_options.scale, 10.0..=60.0).fixed_decimals(1))
-                                .changed();
-
-                            if ui.button("Reset").clicked() {
-                                self.srt_options.scale = 35.0;
-                                changed |= true;
-                            }
-                        });
-                        ui.end_row();
-
-                        ui.label("SRT data").on_hover_text(tooltip_text(
-                            "Select data from the SRT file to be rendered on the video.",
-                        ));
-                        let options = &mut self.srt_options;
-                        let has_distance = self.srt_file.as_ref().map(|s| s.has_distance).unwrap_or(true);
-                        Grid::new("srt_selection").show(ui, |ui| {
-                            changed |= ui.checkbox(&mut options.show_time, "Time").changed();
-                            changed |= ui.checkbox(&mut options.show_sbat, "SBat").changed();
-                            changed |= ui.checkbox(&mut options.show_gbat, "GBat").changed();
-                            changed |= ui.checkbox(&mut options.show_signal, "Signal").changed();
-                            ui.end_row();
-
-                            changed |= ui.checkbox(&mut options.show_latency, "Latency").changed();
-                            changed |= ui.checkbox(&mut options.show_bitrate, "Bitrate").changed();
-                            changed |= ui
-                                .add_enabled(has_distance, Checkbox::new(&mut options.show_distance, "Distance"))
-                                .changed();
-                            ui.end_row();
-                        });
-                        ui.end_row();
                     });
             });
 

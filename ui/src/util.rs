@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use backend::{config::AppConfig, ffmpeg::VideoInfo, font::FontFile, osd::OsdFile, srt::SrtFile};
+use backend::{config::AppConfig, ffmpeg::VideoInfo, font::FontFile, osd::OsdFile};
 use egui::{FontFamily, FontId, Margin, RichText, Separator, TextStyle, Ui};
 use github_release_check::{GitHubReleaseItem, LookupError};
 use semver::Version;
@@ -16,7 +16,7 @@ use crate::util::build_info::Build;
 
 impl WalksnailOsdTool {
     pub fn all_files_loaded(&self) -> bool {
-        self.video_loaded() && self.osd_loaded() && self.srt_loaded() && self.font_loaded()
+        self.video_loaded() && self.osd_loaded() && self.font_loaded()
     }
 
     pub fn video_loaded(&self) -> bool {
@@ -25,10 +25,6 @@ impl WalksnailOsdTool {
 
     pub fn osd_loaded(&self) -> bool {
         self.osd_file.is_some()
-    }
-
-    pub fn srt_loaded(&self) -> bool {
-        self.srt_file.is_some()
     }
 
     pub fn font_loaded(&self) -> bool {
@@ -40,9 +36,8 @@ impl WalksnailOsdTool {
             self.video_file = Some(video_file.clone());
             self.video_info = VideoInfo::get(video_file, &self.dependencies.ffprobe_path).ok();
 
-            // Try to load the matching OSD and SRT files
+            // Try to load the matching OSD file
             self.import_osd_file(&[matching_file_with_extension(video_file, "osd")]);
-            self.import_srt_file(&[matching_file_with_extension(video_file, "srt")]);
         }
     }
 
@@ -50,14 +45,6 @@ impl WalksnailOsdTool {
         if let Some(osd_file_path) = filter_file_with_extention(file_handles, "osd") {
             self.osd_file = OsdFile::open(osd_file_path.clone()).ok();
             self.osd_preview.preview_frame = 1;
-        }
-    }
-
-    pub fn import_srt_file(&mut self, file_handles: &[PathBuf]) {
-        if let Some(str_file_path) = filter_file_with_extention(file_handles, "srt") {
-            self.srt_file = SrtFile::open(str_file_path.clone()).ok();
-            self.srt_options.show_distance &= self.srt_file.as_ref().map(|s| s.has_distance).unwrap_or(true);
-            self.config_changed = Some(Instant::now());
         }
     }
 
@@ -159,7 +146,6 @@ impl Into<AppConfig> for &mut WalksnailOsdTool {
     fn into(self) -> AppConfig {
         AppConfig {
             osd_options: self.osd_options.clone(),
-            srt_options: self.srt_options.clone(),
             render_options: self.render_settings.clone(),
             app_update: backend::util::AppUpdate {
                 check_on_startup: self.app_update.check_on_startup,

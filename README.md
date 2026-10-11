@@ -7,7 +7,7 @@
 [![Latest build](https://img.shields.io/github/last-commit/avsaase/walksnail-osd-tool/master?label=latest%20build)](https://nightly.link/avsaase/walksnail-osd-tool/workflows/release.yaml/master/walksnail-osd-tool-all-platforms.zip)
 [![Totally awesome](https://img.shields.io/badge/totally%20awesome-true-blue)](https://github.com/avsaase/walksnail-osd-tool)
 
-Cross-platform tool for rendering the flight controller OSD and SRT data from the Walksnail Avatar HD FPV system on top of the goggle or VRX recording.
+Cross-platform tool for rendering the flight controller OSD from the Walksnail Avatar HD FPV system on top of the goggle or VRX recording.
 
 ![image](https://user-images.githubusercontent.com/880421/228286034-ffd7bf0d-4bb0-4774-9ee1-dd408bd97a88.png)
 
@@ -17,10 +17,9 @@ Cross-platform tool for rendering the flight controller OSD and SRT data from th
 - Native installer for Windows, App bundle for MacOS.
 - Hardware-accelerated encoding powered by ffmpeg.
 - Choose between H.264 and H.265 codecs (more can be added later).
-- View basic information about the video, OSD, SRT and font files.
+- View basic information about the video, OSD and font files.
 - Preview OSD frames before rendering.
 - Automatically center the OSD or position it manually.
-- Render selected info from the SRT file.
 - Selectable output video bitrate (more encoder settings will be added later).
 - Upscale output video to 1440p for higher quality when uploading to YouTube.
 - Mask OSD items ([demo](https://imgur.com/u8xi2tX)).

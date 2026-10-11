@@ -23,14 +23,13 @@ impl WalksnailOsdTool {
             .clicked()
         {
             if let Some(file_handles) = rfd::FileDialog::new()
-                .add_filter("Avatar files", &["mp4", "osd", "png", "srt"])
+                .add_filter("Avatar files", &["mp4", "osd", "png"])
                 .pick_files()
             {
                 tracing::info!("Opened files {:?}", file_handles);
                 self.import_video_file(&file_handles);
                 self.import_osd_file(&file_handles);
                 self.import_font_file(&file_handles);
-                self.import_srt_file(&file_handles);
 
                 self.update_osd_preview(ctx);
                 self.render_status.reset();
@@ -50,7 +49,6 @@ impl WalksnailOsdTool {
             self.import_video_file(&file_handles);
             self.import_osd_file(&file_handles);
             self.import_font_file(&file_handles);
-            self.import_srt_file(&file_handles);
             self.update_osd_preview(ctx);
             self.render_status.reset();
         }
@@ -65,7 +63,6 @@ impl WalksnailOsdTool {
             self.video_info = None;
             self.osd_file = None;
             self.font_file = None;
-            self.srt_file = None;
             self.osd_preview.texture_handle = None;
             self.osd_preview.preview_frame = 1;
             self.render_status.reset();

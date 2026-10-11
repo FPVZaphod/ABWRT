@@ -8,62 +8,48 @@ use ffmpeg_sidecar::{
 };
 use image::{Rgba, RgbaImage};
 
-use super::{overlay_osd, overlay_srt_data};
+use super::overlay_osd;
 use crate::{
     ffmpeg::{handle_decoder_events, FromFfmpegMessage, ToFfmpegMessage},
     font,
     osd::{self, OsdOptions},
-    srt::{self, SrtOptions},
 };
 
-pub struct FrameOverlayIter<'a> {
+pub struct FrameOverlayIter {
     decoder_iter: FfmpegIterator,
     decoder_process: FfmpegChild,
     osd_frames_iter: Peekable<IntoIter<osd::Frame>>,
-    srt_frames_iter: Peekable<IntoIter<srt::SrtFrame>>,
     font_file: font::FontFile,
     osd_options: OsdOptions,
-    srt_options: SrtOptions,
-    srt_font: rusttype::Font<'a>,
     current_osd_frame: osd::Frame,
-    current_srt_frame: srt::SrtFrame,
     ffmpeg_sender: Sender<FromFfmpegMessage>,
     ffmpeg_receiver: Receiver<ToFfmpegMessage>,
     chroma_key: Option<Rgba<u8>>,
 }
 
-impl<'a> FrameOverlayIter<'a> {
+impl FrameOverlayIter {
     #[tracing::instrument(skip(decoder_iter, decoder_process, osd_frames, font_file), level = "debug")]
     pub fn new(
         decoder_iter: FfmpegIterator,
         decoder_process: FfmpegChild,
         osd_frames: Vec<osd::Frame>,
-        srt_frames: Vec<srt::SrtFrame>,
         font_file: font::FontFile,
-        srt_font: rusttype::Font<'a>,
         osd_options: &OsdOptions,
-        srt_options: &SrtOptions,
         ffmpeg_sender: Sender<FromFfmpegMessage>,
         ffmpeg_receiver: Receiver<ToFfmpegMessage>,
         chroma_key: Option<[f32; 3]>,
     ) -> Self {
         let mut osd_frames_iter = osd_frames.into_iter();
-        let mut srt_frames_iter = srt_frames.into_iter();
         let first_osd_frame = osd_frames_iter.next().unwrap();
-        let first_srt_frame = srt_frames_iter.next().unwrap();
         let chroma_key =
             chroma_key.map(|c| Rgba([(c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8, 255]));
         Self {
             decoder_iter,
             decoder_process,
             osd_frames_iter: osd_frames_iter.peekable(),
-            srt_frames_iter: srt_frames_iter.peekable(),
             font_file,
             osd_options: osd_options.clone(),
-            srt_options: srt_options.clone(),
-            srt_font: srt_font.clone(),
             current_osd_frame: first_osd_frame,
-            current_srt_frame: first_srt_frame,
             ffmpeg_sender,
             ffmpeg_receiver,
             chroma_key,
@@ -71,7 +57,7 @@ impl<'a> FrameOverlayIter<'a> {
     }
 }
 
-impl Iterator for FrameOverlayIter<'_> {
+impl Iterator for FrameOverlayIter {
     type Item = OutputVideoFrame;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -92,13 +78,6 @@ impl Iterator for FrameOverlayIter<'_> {
                     }
                 }
 
-                if let Some(next_srt_frame) = self.srt_frames_iter.peek() {
-                    let next_srt_start_time_secs = next_srt_frame.start_time_secs;
-                    if video_frame.timestamp > next_srt_start_time_secs {
-                        self.current_srt_frame = self.srt_frames_iter.next().unwrap();
-                    }
-                }
-
                 let mut frame_image = if let Some(chroma_key) = self.chroma_key {
                     RgbaImage::from_pixel(video_frame.width, video_frame.height, chroma_key)
                 } else {
@@ -111,10 +90,6 @@ impl Iterator for FrameOverlayIter<'_> {
                     &self.font_file,
                     &self.osd_options,
                 );
-
-                if let Some(srt_data) = &self.current_srt_frame.data {
-                    overlay_srt_data(&mut frame_image, srt_data, &self.srt_font, &self.srt_options);
-                }
 
                 video_frame.data = frame_image.as_raw().to_vec();
                 Some(video_frame)

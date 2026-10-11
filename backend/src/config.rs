@@ -2,13 +2,12 @@ use confy::ConfyError;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
-use crate::{ffmpeg::RenderSettings, osd::OsdOptions, srt::SrtOptions, util::AppUpdate, NAMESPACE};
+use crate::{ffmpeg::RenderSettings, osd::OsdOptions, util::AppUpdate, NAMESPACE};
 
 #[derive(Debug, Deserialize, Serialize, Derivative)]
 #[derivative(Default)]
 pub struct AppConfig {
     pub osd_options: OsdOptions,
-    pub srt_options: SrtOptions,
     pub render_options: RenderSettings,
     pub app_update: AppUpdate,
     pub font_path: String,
