@@ -1,6 +1,6 @@
 [package]
 name = "abwrt"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Cross-platform tool for rendering the flight controller OSD from the Walksnail Avatar HD FPV system on top of the goggle or VRX recording."
 authors = ["FPVZaphod", "Alexander van Saase"]

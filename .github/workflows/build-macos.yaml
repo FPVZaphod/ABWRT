@@ -1,14 +1,20 @@
 name: Build macOS
 
-# Builds only the macOS app bundles (Apple Silicon and Intel) without the Windows build and without
-# creating a release. Run it manually from the Actions tab or by pushing to a feature branch.
-# The zipped app bundles are available as artifacts of the workflow run.
+# Builds only the macOS app bundles (Apple Silicon and Intel) without the Windows build.
+# Run it manually from the Actions tab or by pushing to a feature branch. The zipped app bundles are
+# available as artifacts of the workflow run.
+#
+# Pushing a version tag (for example `v0.4.0`) also creates a draft GitHub release with the app bundles
+# and the release notes from CHANGELOG.md. The tag must match the version in ui/Cargo.toml and the
+# changelog needs a section for it. Publish the draft on GitHub after checking it.
 
 on:
   workflow_dispatch:
   push:
     branches:
       - "feature/**"
+    tags:
+      - "v*"
 
 jobs:
   build-macos:
@@ -40,6 +46,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Check that the tag matches the version of the program
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          CARGO_VERSION="$(grep -m1 '^version' ui/Cargo.toml | cut -d'"' -f2)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME does not match the version $CARGO_VERSION in ui/Cargo.toml"
+            exit 1
+          fi
 
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -188,3 +204,52 @@ jobs:
           name: abwrt-${{ matrix.targets.name }}
           path: ${{ github.workspace }}/_deploy/macos/*.zip
           if-no-files-found: error
+
+  # Creates a draft release when a version tag was pushed, publish it on GitHub after checking it
+  release:
+    name: Create draft release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install parse-changelog
+        uses: taiki-e/install-action@v2
+        with:
+          tool: parse-changelog
+
+      - name: Generate release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          parse-changelog CHANGELOG.md "$VERSION" > "$RUNNER_TEMP/release_notes.md"
+          cat >> "$RUNNER_TEMP/release_notes.md" <<'EOF'
+
+          ## Installation (macOS)
+
+          Download `abwrt-macos-apple-silicon.zip` for Apple Silicon Macs or `abwrt-macos-intel.zip` for Intel Macs, unzip it and drag `ABWRT.app` to your Applications folder.
+
+          The app is not signed with a Developer ID certificate. If macOS says that the app is damaged or from an unverified developer, remove the quarantine flag once in the terminal:
+
+          ```
+          xattr -dr com.apple.quarantine "/Applications/ABWRT.app"
+          ```
+          EOF
+
+      - name: Download app bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: abwrt-macos-*
+          merge-multiple: true
+          path: ${{ github.workspace }}/_deploy/artifacts
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ABWRT ${{ github.ref_name }}
+          files: ${{ github.workspace }}/_deploy/artifacts/*.zip
+          body_path: ${{ runner.temp }}/release_notes.md
+          draft: true

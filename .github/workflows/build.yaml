@@ -1,11 +1,10 @@
 name: Build
 
+# Template of the original project that builds the Windows installer and the macOS bundles.
+# It is not used for the releases of ABWRT, see build-macos.yaml, so it only runs when started manually
+# or called from release.yaml.
 on:
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - "**"
+  workflow_dispatch:
   workflow_call:
 
 jobs:

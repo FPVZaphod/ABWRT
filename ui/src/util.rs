@@ -258,7 +258,8 @@ pub mod build_info {
     }
 
     pub fn get_version() -> Build {
-        let version: Option<Version> = option_env!("GIT_VERSION").and_then(|s| Version::parse(s).ok());
+        let version: Option<Version> =
+            option_env!("GIT_VERSION").and_then(|s| Version::parse(s.trim().trim_start_matches('v')).ok());
         let short_hash: Option<&'static str> = option_env!("GIT_COMMIT_HASH");
 
         match (version, short_hash.map(|s| s.to_string())) {
